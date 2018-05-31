@@ -1,0 +1,8 @@
+ * REVISON HISTORY
+ *
+ * VERSION | DATE          | DESCRIPTION
+ *
+ * 3.0.1   | 06/15/2017    | MTK driver initial version
+ * 3.0.2   | 07/03/2017    | add Kconfig
+ * 3.0.3   | 07/05/2017    | fixed ATA test bug
+ * 3.0.4   | 02/08/2018    | modified driver to be compatible with Android O

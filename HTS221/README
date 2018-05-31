@@ -1,0 +1,5 @@
+ * History: 
+ *   V1.0 --- [2013.02.18]Driver creation
+ *   V1.1 --- [2013.03.14]Instead late_resume, use resume to make sure driver resume is ealier than processes resume.
+ *   V1.2 --- [2013.03.26]Re-write i2c function to fix the bug that i2c access error on MT6589 platform.
+ *   V1.3 --- [2018.01.11]add temperature driver support

@@ -1,0 +1,9 @@
+config ST_LIS2DS12_ACCEL
+	bool "STMicroelectronics LIS2DS12 Accelerometer"
+	depends on I2C
+        default n
+	help
+	  Say Y here if you have a STMicroelectronics LIS2DS12 Accelerometer
+	  connected to your system.
+
+	  If unsure, say N.

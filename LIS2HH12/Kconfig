@@ -1,0 +1,8 @@
+config MTK_LIS2HH12
+	bool "LIS2HH12 for MediaTek package"
+        default n
+	help
+	  It support different accelerometer sensor.
+          If this option is set,
+	  it will support
+          LIS2HH12 Accelerometer.

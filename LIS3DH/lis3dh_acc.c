@@ -1,16 +1,4 @@
-/* LIS3DH driver
- *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- */
- 
+
 #include "lis3dh.h"
 
 /*----------------------------------------------------------------------------*/
@@ -24,7 +12,7 @@ static struct data_resolution lis3dh_data_resolution[] = {
 static struct data_resolution lis3dh_offset_resolution = {{15, 6}, 64};
 static struct GSENSOR_VECTOR3D gsensor_gain, gsensor_offset;
 struct acc_hw lis3dh_cust_hw;
-int lis3dh_acc_init_flag = -1; // 0<==>OK -1 <==> fail
+int lis3dh_acc_init_flag =-1; // 0<==>OK -1 <==> fail
 /*----------------------------------------------------------------------------*/
 
 
@@ -72,18 +60,23 @@ static int lis3dh_acc_read_rawdata(struct lis3dh_acc *acc_obj, s16 data[LIS3DH_A
 {
     
     struct lis3dh_data *obj = container_of(acc_obj, struct lis3dh_data, lis3dh_acc_data);
-	struct i2c_client *client = obj->client;  
+	struct i2c_client *client = obj->client;
+    
     u8 buf[LIS3DH_DATA_LEN] = {0};
     int err = 0;
 
-    if (NULL == client) {
+    if(NULL == client)
+    {
         err = -EINVAL;
-    } else {     
-		if ((lis3dh_i2c_read_block(client, LIS3DH_REG_OUT_X, buf, 0x01)) < 0) {
+    }
+    
+    else
+    {
+        if((lis3dh_i2c_read_block(client, LIS3DH_REG_OUT_X, buf, 0x01))<0)
+        {
            ST_ERR("read  G sensor data register err!\n");
              return -1;
         }
-		
         if((lis3dh_i2c_read_block(client, LIS3DH_REG_OUT_X+1, &buf[1], 0x01))<0)
         {
            ST_ERR("read  G sensor data register err!\n");
@@ -112,7 +105,7 @@ static int lis3dh_acc_read_rawdata(struct lis3dh_acc *acc_obj, s16 data[LIS3DH_A
            ST_ERR("read  G sensor data register err!\n");
              return -1;
         }
-
+        
 		data[LIS3DH_AXIS_X] = ( (s16) ( ( (buf[1] << 8) | buf[0] ) ) ) >> 4;
         data[LIS3DH_AXIS_Y] = ( (s16) ( ( (buf[3] << 8) | buf[2] ) ) ) >> 4;
         data[LIS3DH_AXIS_Z] = ( (s16) ( ( (buf[5] << 8) | buf[4] ) ) ) >> 4;
@@ -237,7 +230,8 @@ static int lis3dh_acc_set_full_scale(struct lis3dh_acc *acc_obj, u8 dataformat)
 
     memset(databuf, 0, sizeof(u8)*10);
 
-    if ((lis3dh_i2c_read_block(client, addr, databuf, 0x01)) < 0) {
+    if((lis3dh_i2c_read_block(client, addr, databuf, 0x01))<0)
+    {
         ST_ERR("read reg_ctl_reg1 register err!\n");
         return LIS3DH_ERR_I2C;
     }
@@ -246,7 +240,9 @@ static int lis3dh_acc_set_full_scale(struct lis3dh_acc *acc_obj, u8 dataformat)
     databuf[0] |= dataformat;
 
     res = lis3dh_i2c_write_block(client, LIS3DH_REG_CTL_REG4, databuf, 0x1);
-    if (res < 0) {
+
+    if(res < 0)
+    {
         return LIS3DH_ERR_I2C;
     }
     
@@ -273,15 +269,13 @@ static int lis3dh_acc_set_odr(struct lis3dh_acc *acc_obj, u8 bwrate)
     databuf[0] &= ~0xF0;
     databuf[0] |= bwrate;
 
-   
     res = lis3dh_i2c_write_block(client, LIS3DH_REG_CTL_REG1, databuf, 0x1);
 
     if(res < 0)
     {
         return LIS3DH_ERR_I2C;
     }
-    acc_obj->odr = bwrate;
- 
+    		
     return LIS3DH_SUCCESS;    
 }
 /*----------------------------------------------------------------------------*/
@@ -290,29 +284,33 @@ int lis3dh_acc_set_power_mode(struct lis3dh_acc *acc_obj, bool state)
     u8 databuf[2];    
     int res = 0;
 
-    if (state == acc_obj->lis3dh_acc_power) {
+    if(state == acc_obj->lis3dh_acc_power)
+    {
         ST_LOG("Sensor power status is newest!\n");
         return LIS3DH_SUCCESS;
     }
 
-    if (state == true) {
-		if (acc_obj->odr == 0)
-			acc_obj->odr = LIS3DH_BW_100HZ;
+    if(state == true)
+    {
+		res = lis3dh_acc_set_odr(acc_obj, acc_obj->odr);
+    }
 
-		res = lis3dh_acc_set_odr(acc_obj, acc_obj->odr);  
-    } else {
+    else if(state == false)
+    {
 		res = lis3dh_acc_set_odr(acc_obj, LIS3DH_BW_0HZ);
     }
 	
-    if (res < 0) {
+    if(res < 0)
+    {
         ST_LOG("set power mode failed!\n");
         return LIS3DH_ERR_I2C;
-    } else if (atomic_read(&acc_obj->trace) & ADX_TRC_INFO) {
+    }
+    else if(atomic_read(&acc_obj->trace) & ADX_TRC_INFO)
+    {
         ST_LOG("set power mode ok %d!\n", databuf[1]);
     }
 	
 	acc_obj->lis3dh_acc_power = state;
-	
     return LIS3DH_SUCCESS;    
 }
 /*----------------------------------------------------------------------------*/
@@ -343,7 +341,7 @@ int lis3dh_acc_init(struct lis3dh_acc *acc_obj, int reset_cali)
         return res;
     }
 
-    res = lis3dh_acc_set_full_scale(acc_obj, LIS3DH_RANGE_2G); //8g or 2G no oher choise
+    res = lis3dh_acc_set_full_scale(acc_obj, LIS3DH_RANGE_2G);//8g or 2G no oher choise
     if(res < 0) 
     {
         ST_ERR("lis3dh_acc_init step 3!\n");
@@ -465,7 +463,8 @@ static int lis3dh_acc_read_data(struct lis3dh_acc *acc_obj, u8 *buf, int bufsize
         acc[LIS3DH_AXIS_X] = acc[LIS3DH_AXIS_X] * GRAVITY_EARTH_1000 / acc_obj->reso->sensitivity;
         acc[LIS3DH_AXIS_Y] = acc[LIS3DH_AXIS_Y] * GRAVITY_EARTH_1000 / acc_obj->reso->sensitivity;
         acc[LIS3DH_AXIS_Z] = acc[LIS3DH_AXIS_Z] * GRAVITY_EARTH_1000 / acc_obj->reso->sensitivity;        
-	
+        
+
         sprintf(buf, "%04x %04x %04x", acc[LIS3DH_AXIS_X], acc[LIS3DH_AXIS_Y], acc[LIS3DH_AXIS_Z]);
         if(atomic_read(&acc_obj->trace) & ADX_TRC_IOCTL)//atomic_read(&obj->trace) & ADX_TRC_IOCTL
         {
@@ -514,6 +513,7 @@ static ssize_t lis3dh_attr_acc_show_chipinfo_value(struct device_driver *ddri, c
         ST_ERR("i2c client is null!!\n");
         return 0;
     }
+    
     lis3dh_read_chip_name(obj, strbuf, LIS3DH_BUFSIZE);
     return snprintf(buf, PAGE_SIZE, "%s\n", strbuf);        
 }
@@ -527,7 +527,7 @@ static ssize_t lis3dh_attr_acc_show_chipid_value(struct device_driver *ddri, cha
         ST_ERR("i2c client is null!!\n");
         return 0;
     }
-    
+
     //lis3dh_read_chip_name(client, strbuf, LIS3DH_BUFSIZE);
     return snprintf(buf, PAGE_SIZE, "%s\n", strbuf);
 }
@@ -934,6 +934,7 @@ static int lis3dh_acc_open_report_data_intf(int open)
 }
 
 // if use  this typ of enable , Gsensor only enabled but not report inputEvent to HAL
+
 static int lis3dh_acc_enable_nodata_intf(int en)
 {
     struct lis3dh_data *obj = obj_i2c_data;
@@ -941,20 +942,21 @@ static int lis3dh_acc_enable_nodata_intf(int en)
     int res =0;
     bool power = false;
     
-    if (1 == en)
+    if(1==en)
+    {
         power = true;
-    else if (0 == en)
+    }
+    if(0==en)
+    {
         power = false;
- 
+    }
 	acc_obj->enabled = en;
-	
     res = lis3dh_acc_set_power_mode(acc_obj, power);
     if(res != LIS3DH_SUCCESS)
     {
         ST_ERR("lis3dh_acc_set_power_mode fail!\n");
         return -1;
     }
-	
     ST_LOG("lis3dh_acc_enable_nodata_intf OK!\n");
     return 0;
 }
@@ -982,8 +984,8 @@ static int lis3dh_acc_set_delay_intf(u64 ns)
         sample_delay = LIS3DH_BW_50HZ;
     }
 
-	//acc_obj->odr = sample_delay;
-	err = lis3dh_acc_set_odr(acc_obj, sample_delay);
+	acc_obj->odr = sample_delay;
+	err = lis3dh_acc_set_odr(acc_obj, acc_obj->odr);
     if(err != LIS3DH_SUCCESS ) //0x2C->BW=100Hz
     {
         ST_ERR("Set delay parameter error!\n");
@@ -1005,16 +1007,6 @@ static int lis3dh_acc_set_delay_intf(u64 ns)
     
     ST_LOG("lis3dh_acc_set_delay_intf (%d)\n",value);
     return 0;
-}
-
-static int lis3dh_acc_batch_intf(int flag, int64_t samplingPeriodNs, int64_t maxBatchReportLatencyNs)
-{
-	return lis3dh_acc_set_delay_intf((u64)samplingPeriodNs);
-}
-
-static int lis3dh_acc_flush_intf(void)
-{
-	return acc_flush_report();
 }
 
 static int lis3dh_acc_get_data_intf(int* x ,int* y,int* z, int* status)
@@ -1108,7 +1100,6 @@ static long lis3dh_acc_unlocked_ioctl(struct file *file, unsigned int cmd,
                 break;      
             }
             lis3dh_acc_set_power_mode(acc_obj, true);
-			
             lis3dh_acc_read_data(acc_obj, strbuf, LIS3DH_BUFSIZE);
             if(copy_to_user(data, strbuf, strlen(strbuf)+1))
             {
@@ -1318,27 +1309,18 @@ static int lis3dh_acc_local_init(void)
 {
     struct lis3dh_data *obj = obj_i2c_data;
     struct lis3dh_acc *acc_obj = &obj->lis3dh_acc_data;
-	struct i2c_client *client = obj->client;
-    int err = 0, retry = 0;
-    struct acc_control_path ctl = {0};
-    struct acc_data_path data = {0};    
-    //const u8 *name = "mediatek,lis3dh";	
+    int err = 0;
+    int retry = 0;
+    struct acc_control_path ctl={0};
+    struct acc_data_path data={0};    
+    const u8 *name = "mediatek,lis3dh";	
     ST_FUN();
 
-#if 0
     acc_obj->lis3dh_acc_hw = get_accel_dts_func(name, &lis3dh_cust_hw);
+
     if (!acc_obj->lis3dh_acc_hw) {
         ST_ERR("get lis3dh dts info failed\n");
     }
-#else
-	err = get_accel_dts_func(client->dev.of_node, &lis3dh_cust_hw);
-	if (err < 0) {
-		ST_ERR("get lis3dh dts info fail\n");
-		return -EFAULT;
-	}
-
-	acc_obj->lis3dh_acc_hw = &lis3dh_cust_hw;
-#endif
 
     if((err = hwmsen_get_convert(acc_obj->lis3dh_acc_hw->direction, &acc_obj->cvt)))
     {
@@ -1365,8 +1347,8 @@ static int lis3dh_acc_local_init(void)
     }
 #endif
 
-    for (retry = 0; retry < 3; retry++) {
-        if ((err = lis3dh_acc_init(acc_obj, 1)))
+    for(retry = 0; retry < 3; retry++){
+        if((err = lis3dh_acc_init(acc_obj, 1)))
         {
             ST_ERR("lis3dh_acc_device init cilent fail time: %d\n", retry);
             continue;
@@ -1386,15 +1368,11 @@ static int lis3dh_acc_local_init(void)
         ST_ERR("create attribute err = %d\n", err);
         goto exit_create_attr_failed;
     }
-
-    ctl.open_report_data       = lis3dh_acc_open_report_data_intf;
-    ctl.enable_nodata          = lis3dh_acc_enable_nodata_intf;
-    ctl.set_delay  			   = lis3dh_acc_set_delay_intf;
-	ctl.batch 		           = lis3dh_acc_batch_intf;	
-	ctl.flush 		   		   = lis3dh_acc_flush_intf;
-	ctl.is_use_common_factory  = false;
-	ctl.is_report_input_direct = false;
-	ctl.is_support_batch 	   = acc_obj->lis3dh_acc_hw->is_batch_supported;
+    ctl.is_use_common_factory = false;
+    ctl.open_report_data= lis3dh_acc_open_report_data_intf;
+    ctl.enable_nodata = lis3dh_acc_enable_nodata_intf;
+    ctl.set_delay  = lis3dh_acc_set_delay_intf;
+    ctl.is_report_input_direct = false;
     
     err = acc_register_control_path(&ctl);
     if(err)
@@ -1403,7 +1381,7 @@ static int lis3dh_acc_local_init(void)
         goto exit_kfree;
     }
 
-    data.get_data   = lis3dh_acc_get_data_intf;
+    data.get_data = lis3dh_acc_get_data_intf;
     data.vender_div = 1000;
     err = acc_register_data_path(&data);
     if(err) {
@@ -1440,11 +1418,9 @@ static int lis3dh_acc_local_remove(void)
 
 /*----------------------------------------------------------------------------*/
 struct acc_init_info lis3dh_acc_init_info = {
-    .name   = "lis3dh",
-    .init   = lis3dh_acc_local_init,
-    .uninit = lis3dh_acc_local_remove,
+        .name = "lis3dh",
+        .init = lis3dh_acc_local_init,
+        .uninit = lis3dh_acc_local_remove,
 };
 
-MODULE_DESCRIPTION("STMicroelectronics lis3dh driver");
-MODULE_AUTHOR("William Zeng");
-MODULE_LICENSE("GPL v2");
+

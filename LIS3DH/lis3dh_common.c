@@ -1,17 +1,14 @@
-/* LIS3DH driver
- *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- */
- 
+
 #include "lis3dh.h"
+
+static const struct i2c_device_id lis3dh_i2c_id[] = {{LIS3DH_DEV_NAME,0},{}};
+
+#ifdef CONFIG_OF
+static const struct of_device_id lis3dh_of_match[] = {
+    {.compatible = "mediatek,gsensor"},
+    {}
+};
+#endif
 
 static struct i2c_driver lis3dh_i2c_driver;
 
@@ -20,6 +17,8 @@ struct lis3dh_data *obj_i2c_data = NULL;
 static DEFINE_MUTEX(lis3dh_i2c_mutex);
 static DEFINE_MUTEX(lis3dh_op_mutex);
 
+//int sensor_suspend = 0;
+//int sensor_suspend = 0;
 /*--------------------read function----------------------------------*/
 int lis3dh_i2c_read_block(struct i2c_client *client, u8 addr, u8 *data, u8 len)
 {
@@ -105,18 +104,24 @@ int lis3dh_i2c_write_block(struct i2c_client *client, u8 addr, u8 *data, u8 len)
 void dumpReg(struct lis3dh_data *obj)
 {
     struct i2c_client *client = obj->client;
-    int i = 0;
-    u8 addr = 0x20, regdata = 0;
-	
-    for (i = 0; i < 16; i++) {
+
+    int i=0;
+    u8 addr = 0x20;
+    u8 regdata=0;
+    for(i=0; i<16; i++)
+    {
         //dump all
         lis3dh_i2c_read_block(client,addr,&regdata,1);
         ST_LOG("Reg addr=%x regdata=%x\n",addr,regdata);
         addr++;
     }
 }
-
 /*--------------------ADXL power control function----------------------------------*/
+static void lis3dh_chip_power(struct lis3dh_data *obj, unsigned int on) 
+{
+    return;
+}
+
 #ifdef CONFIG_LIS3DH_ACC_DRY
 int lis3dh_set_interrupt(struct lis3dh_data *obj, u8 intenable)
 {
@@ -309,6 +314,73 @@ int lis3dh_i2c_delete_attr(struct device_driver *driver)
 }
 
 /*----------------------------------------------------------------------------*/
+static int lis3dh_suspend(struct i2c_client *client, pm_message_t msg) 
+{
+    struct lis3dh_data *obj = i2c_get_clientdata(client);
+    struct lis3dh_acc *acc_obj = &obj->lis3dh_acc_data;
+    int err = 0;
+	
+    ST_FUN();
+    
+    if((msg.event == PM_EVENT_SUSPEND) && (acc_obj->enabled == 1))
+    {   
+        mutex_lock(&lis3dh_op_mutex);
+        if(obj == NULL)
+        {    
+            mutex_unlock(&lis3dh_op_mutex);
+            ST_ERR("null pointer!!\n");
+            return -EINVAL;
+        }
+
+        err = lis3dh_acc_set_power_mode(acc_obj, false);		
+        if(err)
+        {
+            ST_ERR("write power control fail!!\n");
+            mutex_unlock(&lis3dh_op_mutex);
+            return err;        
+        }
+        
+        atomic_set(&acc_obj->suspend, 1);
+		mutex_unlock(&lis3dh_op_mutex);
+        lis3dh_chip_power(obj, 0);
+    }
+    
+	ST_LOG("lis3dh i2c suspended\n");
+    return err;
+}
+/*----------------------------------------------------------------------------*/
+static int lis3dh_resume(struct i2c_client *client)
+{
+    struct lis3dh_data *obj = i2c_get_clientdata(client);
+    struct lis3dh_acc *acc_obj = &obj->lis3dh_acc_data;
+    int err;
+	
+    ST_FUN();
+    lis3dh_chip_power(obj, 1);
+	if (acc_obj->enabled == 1) 
+    {
+	    mutex_lock(&lis3dh_op_mutex);
+	    if(obj == NULL)
+	    {
+		    mutex_unlock(&lis3dh_op_mutex);
+		    ST_ERR("null pointer!!\n");
+		    return -EINVAL;
+	    }
+    
+        err = lis3dh_acc_set_power_mode(acc_obj, true);
+        if(err)
+        {
+            mutex_unlock(&lis3dh_op_mutex);
+            ST_ERR("initialize client fail!!\n");
+            return err;        
+        }
+        atomic_set(&acc_obj->suspend, 0);
+        mutex_unlock(&lis3dh_op_mutex);
+    }
+	ST_LOG("lis3dh i2c resumed\n");
+    return 0;
+}
+/*----------------------------------------------------------------------------*/
 static int lis3dh_i2c_detect(struct i2c_client *client, struct i2c_board_info *info) 
 {    
     strcpy(info->type, LIS3DH_DEV_NAME);
@@ -320,10 +392,12 @@ static int lis3dh_i2c_detect(struct i2c_client *client, struct i2c_board_info *i
 static int lis3dh_i2c_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
     struct lis3dh_data *obj;
+	
     int err = 0;
 	ST_FUN();
 	
-	if (!(obj = kzalloc(sizeof(*obj), GFP_KERNEL))) {
+	if(!(obj = kzalloc(sizeof(*obj), GFP_KERNEL)))
+    {
         err = -ENOMEM;
 		return err;
     }
@@ -333,18 +407,20 @@ static int lis3dh_i2c_probe(struct i2c_client *client, const struct i2c_device_i
     i2c_set_clientdata(client, obj);
 	
 	err = lis3dh_check_device_id(obj);
-	if (err) {
+	if (err)
+	{
         ST_ERR("check device error!\n");
 		goto exit_check_device_failed;
 	}
 
     err = lis3dh_i2c_create_attr(&lis3dh_i2c_driver.driver);
-	if (err) {
+	if (err)
+	{
         ST_ERR("create attr error!\n");
 		goto exit_create_attr_failed;
 	}
 #ifdef CONFIG_LIS3DH_ACC_DRY
-	//TODO: request irq for data ready of SMD, TILT, etc.
+	//TODO: request irq for data ready or pedometer, SMD, TILT, etc.
 #endif	
     acc_driver_add(&lis3dh_acc_init_info);
 
@@ -365,15 +441,6 @@ static int lis3dh_i2c_remove(struct i2c_client *client)
     return 0;
 }
 /*----------------------------------------------------------------------------*/
-static const struct i2c_device_id lis3dh_i2c_id[] = {{LIS3DH_DEV_NAME,0},{}};
-
-#ifdef CONFIG_OF
-static const struct of_device_id lis3dh_of_match[] = {
-    {.compatible = "mediatek,gsensor"},
-    {}
-};
-#endif
-
 static struct i2c_driver lis3dh_i2c_driver = {
     .driver = {
         .name           = LIS3DH_DEV_NAME,
@@ -384,6 +451,8 @@ static struct i2c_driver lis3dh_i2c_driver = {
     .probe              = lis3dh_i2c_probe,
     .remove             = lis3dh_i2c_remove,
     .detect             = lis3dh_i2c_detect,
+    .suspend            = lis3dh_suspend,
+    .resume             = lis3dh_resume,
     .id_table           = lis3dh_i2c_id,
 };
 
@@ -391,8 +460,8 @@ static struct i2c_driver lis3dh_i2c_driver = {
 static int __init lis3dh_module_init(void)
 {
     ST_FUN();
-	
-    if (i2c_add_driver(&lis3dh_i2c_driver)) {
+    if(i2c_add_driver(&lis3dh_i2c_driver))
+    {
         ST_ERR("add driver error\n");
         return -1;
     }
@@ -409,8 +478,6 @@ static void __exit lis3dh_module_exit(void)
 /*----------------------------------------------------------------------------*/
 module_init(lis3dh_module_init);
 module_exit(lis3dh_module_exit);
-
 /*----------------------------------------------------------------------------*/
-MODULE_DESCRIPTION("STMicroelectronics lis3dh driver");
-MODULE_AUTHOR("William Zeng");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("LIS3DH I2C driver");

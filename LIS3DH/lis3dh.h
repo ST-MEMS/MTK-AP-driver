@@ -1,33 +1,4 @@
 
-/********************************* (C) COPYRIGHT 2018 STMicroelectronics ********************************
- *
- * File Name         : lis3dh.h
- * Authors           : William ZENG
- * Version           : V1.0.2
- * Date              : 05/09/2018
- * Description       : LIS3DH driver source file
- *
- *********************************************************************************************************
-  * Copyright (c) 2018, STMicroelectronics.
- * All rights reserved.
- *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *********************************************************************************************************
- * REVISON HISTORY
- *
- * VERSION | DATE          | DESCRIPTION
- *
- * 1.0.2   | 05/09/2018	   | modified driver to be compatible with Android O
- * 
- ****************************************************************************************************/
-
 #ifndef LIS3DH_H
 #define LIS3DH_H
 	 
@@ -66,7 +37,6 @@
 #define LIS3DH_RANGE_2G			0x00
 #define LIS3DH_RANGE_4G			0x10
 #define LIS3DH_RANGE_8G			0x20 //8g or 2g no ohter choise//changed
-#define LIS3DH_RANGE_16G			0x30
 
 #define LIS3DH_SELF_TEST			0x10 //changed
 	 

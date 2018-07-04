@@ -1,24 +1,37 @@
 
-/********************************* (C) COPYRIGHT 2018 STMicroelectronics ********************************
+/********************************* (C) COPYRIGHT 2017 STMicroelectronics ********************************
  *
  * File Name         : Lsm6ds3.h
- * Authors           : IAN YANG, William ZENG
- * Version           : V3.1.0
- * Date              : 05/15/2018
+ * Authors           : IAN YANG
+ * Version           : V3.0.6
+ * Date              : 09/25/2017
  * Description       : LSM6DS3 driver source file
  *
  *********************************************************************************************************
-  * Copyright (c) 2018, STMicroelectronics.
+ * Copyright (c) 2017, STMicroelectronics.
  * All rights reserved.
  *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *     1. Redistributions of source code must retain the above copyright
+ *      notice, this list of conditions and the following disclaimer.
+ *     2. Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer in the
+ *       documentation and/or other materials provided with the distribution.
+ *     3. Neither the name of the STMicroelectronics nor the
+ *       names of its contributors may be used to endorse or promote products
+ *       derived from this software without specific prior written permission.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY
+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************************************************
  * REVISON HISTORY
  *
@@ -31,10 +44,6 @@
  * 3.0.4   | 08/25/2017	   | add gyro suspend and resume operation
  * 3.0.5   | 09/25/2017	   | reserved for SPI driver version
  * 3.0.6   | 09/25/2017	   | fixed bugs in factory mode
- * 3.0.7   | 02/08/2018	   | modified driver to be compatible with Android O
- * 3.0.8   | 04/11/2018	   | add gyro turn-on time to fix VTS gyro test error
- * 3.0.9   | 05/14/2018	   | fixed a compile error and add gyro flush interface
- * 3.1.0   | 05/15/2018	   | optimized factory mode calibration functions
  * 
  ****************************************************************************************************/
 
@@ -47,7 +56,7 @@
 #include <accel.h>
 #include <gyroscope.h>
 #include <step_counter.h>
-//#include <tilt_detector.h>
+#include <tilt_detector.h>
 #include <cust_acc.h>
 #include <cust_gyro.h>
 #include <linux/irq.h>
@@ -59,9 +68,9 @@
 #define DEBUG 1
 
 #define CONFIG_STEP_COUNTER              1
-#define CONFIG_STEP_DETECT               0
-#define CONFIG_SIGNIFICANT_MOTION        0
-#define CONFIG_TILT                      0
+#define CONFIG_STEP_DETECT               1
+#define CONFIG_SIGNIFICANT_MOTION        1
+#define CONFIG_TILT                      1
 
 #define CONFIG_PEDOMETER_ALWAYS_ON       0   //this mean the peodometer still work even system in susupend .
 
@@ -183,7 +192,7 @@
 #define LSM6DS3_REG_CTRL2_G_ODR_208HZ		      0x05
 #define LSM6DS3_REG_CTRL2_G_ODR_104HZ		      0x04
 #define LSM6DS3_REG_CTRL2_G_ODR_52HZ		      0x03
-#define LSM6DS3_REG_CTRL2_G_ODR_26HZ		      0x02
+#define LSM6DS3_REG_CTRL2_G_ODR_26HZ		      0x03
 #define LSM6DS3_REG_CTRL2_G_ODR_0HZ	              0x00
 
 #define LSM6DS3_REG_CTRL2_G_FS_245DPS		      0x00
@@ -241,8 +250,9 @@
 //#define DEGREE_TO_RAD_1000		17
 /* 1 rad = 180/PI degree, MAX_LSB = 131, */
 /* 180*131/PI = 7506 */
-#define DEGREE_TO_RAD    	573
-//#define CONFIG_LSM6DS3_LOWPASS   /*apply low pass filter on output*/       
+#define DEGREE_TO_RAD    	7506
+#define CONFIG_LSM6DS3_LOWPASS   /*apply low pass filter on output*/       
+
 
 /*----------------------------------------------------------------------------*/
 typedef enum {

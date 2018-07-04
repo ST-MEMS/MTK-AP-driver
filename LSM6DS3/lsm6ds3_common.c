@@ -1,16 +1,4 @@
-/* LSM6DS3 IMU driver
- *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- */
- 
+
 #include "lsm6ds3.h"
 
 static struct i2c_driver lsm6ds3_i2c_driver;
@@ -61,8 +49,9 @@ int lsm6ds3_i2c_read_block(struct i2c_client *client, u8 addr, u8 *data, u8 len)
 int lsm6ds3_i2c_write_block(struct i2c_client *client, u8 addr, u8 *data, u8 len)
 {   
 	/*because address also occupies one byte, the maximum length for write is 7 bytes*/
-	int res = 0, idx, num;
+	int res, idx, num;
 	u8 buf[C_I2C_FIFO_SIZE];
+	res =0;
 
 	mutex_lock(&lsm6ds3_i2c_mutex);
 	if (!client) {
@@ -188,7 +177,44 @@ void dumpReg(struct lsm6ds3_data *obj)
 	}
 }
 
-#if (CONFIG_HARDWARE_INTERRUPT)
+static void lsm6ds3_chip_power(struct lsm6ds3_data *obj, unsigned int on) 
+{
+	return;
+}
+
+#if(CONFIG_HARDWARE_INTERRUPT)
+struct platform_device *stepPltFmDev;
+
+static int lsm6ds3_probe(struct platform_device *pdev) 
+{
+	stepPltFmDev = pdev;
+	return LSM6DS3_SUCCESS;
+}
+
+static int lsm6ds3_remove(struct platform_device *pdev)
+{
+	return LSM6DS3_SUCCESS;
+}
+
+#ifdef CONFIG_OF
+static const struct of_device_id gsensor_of_match[] = {
+	{ .compatible = "mediatek,st_step_counter", },
+	{},
+};
+#endif
+
+static struct platform_driver lsm6ds3_step_driver = {
+	.probe      = lsm6ds3_probe,
+	.remove     = lsm6ds3_remove,    
+	.driver     = {
+		.name  = "stepcounter",
+//		.owner	= THIS_MODULE,
+#ifdef CONFIG_OF
+		.of_match_table = gsensor_of_match,
+#endif
+	}
+};
+
 static irqreturn_t lsm6ds3_isr(int irq, void *dev)
 {
 	struct lsm6ds3_data *obj = obj_i2c_data;
@@ -209,9 +235,7 @@ static void lsm6ds3_irq_work_func(struct work_struct *work)
 	struct i2c_client *client = obj->client;
 	int res;
 	u8 buf;
-#if (CONFIG_SIGNIFICANT_MOTION)
 	static int counter = 0;
-#endif
 
 	ST_FUN();
 
@@ -255,9 +279,9 @@ int lsm6ds3_set_interrupt(void)
 	struct lsm6ds3_data *obj = obj_i2c_data;
 	struct i2c_client *client = obj->client;
 	struct device_node *node = NULL;
-	//struct pinctrl *pinctrl;
+	struct pinctrl *pinctrl;
 	//struct pinctrl_state *pins_default;
-	//struct pinctrl_state *pins_cfg;
+	struct pinctrl_state *pins_cfg;
 	u32 ints[2] = {0, 0};
 	int res = -1;
 	ST_FUN();
@@ -268,7 +292,7 @@ int lsm6ds3_set_interrupt(void)
 		ST_ERR("write interrupt high or low active  err!\n");
 		return LSM6DS3_ERR_I2C;
 	}
-#if 0
+
 	/* gpio setting */
 	pinctrl = devm_pinctrl_get(&stepPltFmDev->dev);
 	if (IS_ERR(pinctrl)) {
@@ -289,10 +313,8 @@ int lsm6ds3_set_interrupt(void)
 		return res;
 	}
 	pinctrl_select_state(pinctrl, pins_cfg);
-	
-#endif
+
 	node = of_find_compatible_node(NULL, NULL, "mediatek,gyroscope");
-	//node = client->dev.of_node; 
 	if (node) {
 		ST_LOG("irq node is ok!");
 		of_property_read_u32_array(node, "debounce", ints, ARRAY_SIZE(ints));
@@ -305,7 +327,6 @@ int lsm6ds3_set_interrupt(void)
 			ST_ERR("irq_of_parse_and_map fail!!\n");
 			return -EINVAL;
 		}
-
 		INIT_WORK(&obj->irq_work, lsm6ds3_irq_work_func);
 		obj->irq_work_queue =create_singlethread_workqueue("lsm6ds3_step_wq");
 		if (!obj->irq_work_queue) {
@@ -318,14 +339,12 @@ int lsm6ds3_set_interrupt(void)
 			ST_ERR("IRQ LINE NOT AVAILABLE!!\n");
 			return -EINVAL;
 		}
-
 		disable_irq_nosync(obj->irq);
 		atomic_set(&obj->irq_enabled,0); 
 	} else {
 		ST_ERR("null irq node!!\n");
 		return -EINVAL;
 	}
-
 	return LSM6DS3_SUCCESS;
 }
 #endif
@@ -340,7 +359,6 @@ static int lsm6ds3_read_chip_id(struct lsm6ds3_data *obj, u8 *data)
 	if (res < 0) {
 		return LSM6DS3_ERR_I2C;
 	}
-
 	return LSM6DS3_SUCCESS;
 }
 
@@ -364,7 +382,6 @@ static int lsm6ds3_check_device_id(struct lsm6ds3_data *obj)
 		sprintf(obj->name, "LSM6DSL");
 		return LSM6DS3_SUCCESS;
 	} else if (buf ==LSM6DS3_FIXED_DEVID_LSM6DSM) {
-
 		sprintf(obj->name, "LSM6DSM");
 		return LSM6DS3_SUCCESS;
 	} else {
@@ -492,7 +509,6 @@ int lsm6ds3_i2c_delete_attr(struct device_driver *driver)
 	return res;
 }
 
-#if 0
 static int lsm6ds3_suspend(struct i2c_client *client, pm_message_t msg)
 {
 	struct lsm6ds3_data *obj = i2c_get_clientdata(client);
@@ -543,13 +559,13 @@ static int lsm6ds3_suspend(struct i2c_client *client, pm_message_t msg)
 
 			atomic_set(&gyro_obj->suspend, 1);
 		}
+
+		lsm6ds3_chip_power(obj, 0);
 	}
-	
-#if CONFIG_HARDWARE_INTERRUPT
+
 	if (atomic_read(&obj->irq_enabled)) {
 		disable_irq_nosync(obj->irq);
 	}
-#endif
 
 	ST_LOG("lsm6ds3 i2c suspended\n");
 	return res;
@@ -568,6 +584,8 @@ static int lsm6ds3_resume(struct i2c_client *client)
 		ST_ERR("obj: null pointer!!\n");
 		return -EINVAL;
 	}
+
+	lsm6ds3_chip_power(obj, 1);
 
 	if (obj->acc_enabled == 1) {
 		if (acc_obj == NULL) {
@@ -605,17 +623,14 @@ static int lsm6ds3_resume(struct i2c_client *client)
 		atomic_set(&gyro_obj->suspend, 0);
 	}
 
-#if CONFIG_HARDWARE_INTERRUPT
 	if (atomic_read(&obj->irq_enabled)) {
 		enable_irq(obj->irq);;
 	}
-#endif
 
 	ST_LOG("lsm6ds3 i2c resumed\n");
 
 	return 0;
 }
-#endif
 
 static int lsm6ds3_i2c_detect(struct i2c_client *client, struct i2c_board_info *info) 
 {    
@@ -650,28 +665,37 @@ static int lsm6ds3_i2c_probe(struct i2c_client *client, const struct i2c_device_
 		ST_ERR("check device error!\n");
 		goto exit_check_device_failed;
 	}
-	
+
 	res = lsm6ds3_i2c_create_attr(&lsm6ds3_i2c_driver.driver);
 	if (res) {
 		ST_ERR("create attr error!\n");
 		goto exit_create_attr_failed;
 	}
 
-#if (CONFIG_STEP_COUNTER||CONFIG_STEP_DETECT)
+#if(CONFIG_STEP_COUNTER||CONFIG_STEP_DETECT)
 	lsm6ds3_step_configure(obj);
 #endif
 
-#if (CONFIG_HARDWARE_INTERRUPT)
-	res = lsm6ds3_set_interrupt();
-	if (res) {
+#if(CONFIG_HARDWARE_INTERRUPT)
+	platform_driver_register(&lsm6ds3_step_driver);
+	res=lsm6ds3_set_interrupt();
+	if (res){
 		ST_ERR("create interrupt error!\n");
 		goto exit_create_attr_failed;
 	}
 #endif	
 
+	acc_driver_add(&lsm6ds3_acc_init_info);
+	gyro_driver_add(&lsm6ds3_gyro_init_info);
+#if(CONFIG_STEP_COUNTER||CONFIG_STEP_DETECT||CONFIG_SIGNIFICANT_MOTION)
+	step_c_driver_add(&lsm6ds3_pedo_init_info);
+#endif
+#if (CONFIG_TILT)
+	tilt_driver_add(&lsm6ds3_tilt_init_info);
+#endif
+
 	ST_LOG("lsm6ds3_i2c_probe exit\n");
 	return 0;
-	
 exit_create_attr_failed:
 exit_check_device_failed:
 	kfree(obj);
@@ -706,10 +730,8 @@ static struct i2c_driver lsm6ds3_i2c_driver = {
 	.probe              = lsm6ds3_i2c_probe,
 	.remove             = lsm6ds3_i2c_remove,
 	.detect             = lsm6ds3_i2c_detect,
-#if 0
 	.suspend            = lsm6ds3_suspend,
 	.resume             = lsm6ds3_resume,
-#endif
 	.id_table           = lsm6ds3_i2c_id,
 };
 
@@ -721,15 +743,7 @@ static int __init lsm6ds3_module_init(void)
 		ST_ERR("add acc driver error\n");
 		return -1;
 	}
-	
-	acc_driver_add(&lsm6ds3_acc_init_info);
-	gyro_driver_add(&lsm6ds3_gyro_init_info);
-#if (CONFIG_STEP_COUNTER||CONFIG_STEP_DETECT||CONFIG_SIGNIFICANT_MOTION)
-	step_c_driver_add(&lsm6ds3_pedo_init_info);
-#endif
-#if (CONFIG_TILT)
-	tilt_driver_add(&lsm6ds3_tilt_init_info);
-#endif
+
 	return LSM6DS3_SUCCESS;
 }
 
@@ -742,6 +756,5 @@ static void __exit lsm6ds3_module_exit(void)
 module_init(lsm6ds3_module_init);
 module_exit(lsm6ds3_module_exit);
 
-MODULE_DESCRIPTION("STMicroelectronics lsm6ds3 driver");
-MODULE_AUTHOR("Ian Yang, William Zeng");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("LSM6DS3 I2C driver");

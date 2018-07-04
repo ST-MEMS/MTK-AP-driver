@@ -1,21 +1,7 @@
-/* LSM6DS3 IMU driver
- *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- */
- 
+
 #include "lsm6ds3.h"
 
 struct gyro_hw lsm6ds3_gyro_cust_hw;
-static int lsm6ds3_gyro_discard_flag = 0;
-static int lsm6ds3_gyro_discard_num = 0;
 
 static struct data_resolution lsm6ds3_gyro_data_resolution[] = {
 	/* combination by {FULL_RES,RANGE}*/
@@ -200,7 +186,7 @@ static int lsm6ds3_gyro_set_odr(struct lsm6ds3_gyro *gyro_obj, u8 odr)
 	struct i2c_client *client = obj->client;
 	int res = 0;
 
-	res = lsm6ds3_i2c_write_with_mask(client, LSM6DS3_REG_CTRL2_G, LSM6DS3_REG_CTRL2_G_MASK_ODR_G, odr);
+	res=lsm6ds3_i2c_write_with_mask(client, LSM6DS3_REG_CTRL2_G, LSM6DS3_REG_CTRL2_G_MASK_ODR_G, odr);
 	if (res < 0) {
 		return LSM6DS3_ERR_I2C;
 	}
@@ -211,7 +197,7 @@ static int lsm6ds3_gyro_set_odr(struct lsm6ds3_gyro *gyro_obj, u8 odr)
 int lsm6ds3_gyro_set_power_mode(struct lsm6ds3_gyro *gyro_obj, bool state)
 { 
 	int res = 0;
-	
+
 	if (state == gyro_obj->lsm6ds3_gyro_power) {
 		ST_LOG("Sensor power status is newest!\n");
 		return LSM6DS3_SUCCESS;
@@ -221,13 +207,7 @@ int lsm6ds3_gyro_set_power_mode(struct lsm6ds3_gyro *gyro_obj, bool state)
 		if (gyro_obj->odr == 0) {
 			gyro_obj->odr = LSM6DS3_REG_CTRL2_G_ODR_104HZ;
 		}
-		
 		res = lsm6ds3_gyro_set_odr(gyro_obj, gyro_obj->odr);
-
-		mdelay(80);
-		
-		lsm6ds3_gyro_discard_flag = 1;
-		lsm6ds3_gyro_discard_num = 0;
 	} else if (state == false) {
 		res = lsm6ds3_gyro_set_odr(gyro_obj, LSM6DS3_REG_CTRL2_G_ODR_0HZ);
 	} else {
@@ -246,7 +226,7 @@ int lsm6ds3_gyro_set_power_mode(struct lsm6ds3_gyro *gyro_obj, bool state)
 	return LSM6DS3_SUCCESS;
 }
 
-static int lsm6ds3_gyro_init(struct lsm6ds3_gyro *gyro_obj, bool enable)
+int lsm6ds3_gyro_init(struct lsm6ds3_gyro *gyro_obj, bool enable)
 {
 	struct lsm6ds3_data *obj = container_of(gyro_obj, struct lsm6ds3_data, lsm6ds3_gyro_data);
 	struct i2c_client *client = obj->client;
@@ -316,9 +296,9 @@ static int lsm6ds3_gyro_read_data(struct lsm6ds3_gyro *gyro_obj, u8 *data, int b
 		ST_ERR("I2C error: ret value=%d", res);
 		return res;
 	} else {
-		gyro_obj->data[LSM6DS3_AXIS_X] = gyro_obj->data[LSM6DS3_AXIS_X]*gyro_obj->reso->sensitivity/100*10/1000;
-		gyro_obj->data[LSM6DS3_AXIS_Y] = gyro_obj->data[LSM6DS3_AXIS_Y]*gyro_obj->reso->sensitivity/100*10/1000;
-		gyro_obj->data[LSM6DS3_AXIS_Z] = gyro_obj->data[LSM6DS3_AXIS_Z]*gyro_obj->reso->sensitivity/100*10/1000;
+		gyro_obj->data[LSM6DS3_AXIS_X] = gyro_obj->data[LSM6DS3_AXIS_X]*gyro_obj->reso->sensitivity/100*131/1000;
+		gyro_obj->data[LSM6DS3_AXIS_Y] = gyro_obj->data[LSM6DS3_AXIS_Y]*gyro_obj->reso->sensitivity/100*131/1000;
+		gyro_obj->data[LSM6DS3_AXIS_Z] = gyro_obj->data[LSM6DS3_AXIS_Z]*gyro_obj->reso->sensitivity/100*131/1000;
 
 		gyro_obj->data[LSM6DS3_AXIS_X] += gyro_obj->cali_sw[LSM6DS3_AXIS_X];
 		gyro_obj->data[LSM6DS3_AXIS_Y] += gyro_obj->cali_sw[LSM6DS3_AXIS_Y];
@@ -329,19 +309,6 @@ static int lsm6ds3_gyro_read_data(struct lsm6ds3_gyro *gyro_obj, u8 *data, int b
 		gyro[gyro_obj->cvt.map[LSM6DS3_AXIS_Y]] = gyro_obj->cvt.sign[LSM6DS3_AXIS_Y]*gyro_obj->data[LSM6DS3_AXIS_Y];
 		gyro[gyro_obj->cvt.map[LSM6DS3_AXIS_Z]] = gyro_obj->cvt.sign[LSM6DS3_AXIS_Z]*gyro_obj->data[LSM6DS3_AXIS_Z];
 
-		
-		if (lsm6ds3_gyro_discard_flag == 1) {
-			if (lsm6ds3_gyro_discard_num < 4) {
-				gyro[LSM6DS3_AXIS_X] = 0;
-				gyro[LSM6DS3_AXIS_Y] = 0;
-			    gyro[LSM6DS3_AXIS_Z] = 0;
-				lsm6ds3_gyro_discard_num++;
-			} else {
-				lsm6ds3_gyro_discard_flag = 0;
-				ST_LOG("finish discarding sample [%d %d %d]\n", gyro[LSM6DS3_AXIS_X], gyro[LSM6DS3_AXIS_Y], gyro[LSM6DS3_AXIS_Z]);	
-			}
-		}
-		
 		sprintf(data, "%04x %04x %04x", gyro[LSM6DS3_AXIS_X], gyro[LSM6DS3_AXIS_Y], gyro[LSM6DS3_AXIS_Z]);
 		if (atomic_read(&gyro_obj->trace) & ADX_TRC_IOCTL) {
 			ST_LOG("gyroscope data: %s!\n", data);
@@ -727,9 +694,7 @@ static int lsm6ds3_gyro_set_delay_intf(u64 ns)
 	int res;
 
 	value = (int)ns/1000/1000;
-	if (value <= 2) {
-		sample_delay = LSM6DS3_REG_CTRL2_G_ODR_416HZ;
-	} else if (value <= 5) {
+	if (value <= 5) {
 		sample_delay = LSM6DS3_REG_CTRL2_G_ODR_208HZ;
 	} else if (value <= 10) {
 		sample_delay = LSM6DS3_REG_CTRL2_G_ODR_104HZ;
@@ -741,14 +706,11 @@ static int lsm6ds3_gyro_set_delay_intf(u64 ns)
 
 	gyro_obj->odr = sample_delay;
 	res = lsm6ds3_gyro_set_odr(gyro_obj, gyro_obj->odr);
+	/*0x2C->BW=100Hz*/
 	if (res != LSM6DS3_SUCCESS) {
 		ST_ERR("Set delay parameter error!\n");
 	}
-	
-	lsm6ds3_gyro_discard_flag = 1;
-	lsm6ds3_gyro_discard_num = 0;
 
-#ifdef CONFIG_LSM6DS3_LOWPASS
 	if (value >= 50) {
 		atomic_set(&gyro_obj->filter, 0);
 	} else {                    
@@ -759,20 +721,9 @@ static int lsm6ds3_gyro_set_delay_intf(u64 ns)
 		gyro_obj->fir.sum[LSM6DS3_AXIS_Z] = 0;
 		atomic_set(&gyro_obj->filter, 1);
 	}
-#endif
-	
-	ST_LOG("lsm6ds3_gyro_set_delay_intf (%d)\n", value);
+
+	ST_LOG("lsm6ds3_gyro_set_delay_intf (%d)\n",value);
 	return LSM6DS3_SUCCESS;
-}
-
-static int lsm6ds3_gyro_batch_intf(int flag, int64_t samplingPeriodNs, int64_t maxBatchReportLatencyNs)
-{
-	return lsm6ds3_gyro_set_delay_intf((u64)samplingPeriodNs);
-}
-
-static int lsm6ds3_gyro_flush_intf(void)
-{
-	return gyro_flush_report();
 }
 
 static int lsm6ds3_gyro_get_data_intf(int* x ,int* y,int* z, int* status)
@@ -789,7 +740,6 @@ static int lsm6ds3_gyro_get_data_intf(int* x ,int* y,int* z, int* status)
 	return LSM6DS3_SUCCESS;
 }
 
-#ifdef MISC_DEVICE_FACTORY
 static int lsm6ds3_gyro_open(struct inode *inode, struct file *file)
 {
 	file->private_data = obj_i2c_data;
@@ -947,12 +897,12 @@ static long lsm6ds3_gyro_compat_ioctl(struct file *filp, unsigned int cmd, unsig
 #endif
 
 static struct file_operations lsm6ds3_gyro_fops = {
-	.owner          = THIS_MODULE,
-	.open           = lsm6ds3_gyro_open,
-	.release        = lsm6ds3_gyro_release,
+	.owner = THIS_MODULE,
+	.open = lsm6ds3_gyro_open,
+	.release = lsm6ds3_gyro_release,
 	.unlocked_ioctl = lsm6ds3_gyro_unlocked_ioctl,
 #ifdef CONFIG_COMPAT
-	.compat_ioctl   = lsm6ds3_gyro_compat_ioctl,
+	.compat_ioctl = lsm6ds3_gyro_compat_ioctl,
 #endif
 };
 
@@ -961,135 +911,23 @@ static struct miscdevice lsm6ds3_gyro_device = {
 	.name = "gyroscope",
 	.fops = &lsm6ds3_gyro_fops,
 };
-#else
-static int lsm6ds3_gyro_factory_do_self_test(void)
-{
-    return 0;
-}
-
-static int lsm6ds3_gyro_factory_get_cali(int32_t data[3])
-{
-    int err;
-	struct lsm6ds3_data *obj = obj_i2c_data;
-	struct lsm6ds3_gyro *gyro_obj = &obj->lsm6ds3_gyro_data;
-    int cali[3];
-		
-	ST_FUN();
-    err = lsm6ds3_gyro_read_calibration(gyro_obj, cali);
-    if (err) {
-        ST_LOG("lsm6ds3_gyro_read_calibration failed!\n");
-        return -1;
-    }
-	
-    data[0] = cali[0];
-    data[1] = cali[1];
-    data[2] = cali[2];
-		
-    return 0;
-}
-
-static int lsm6ds3_gyro_factory_set_cali(int32_t data[3])
-{
-    int err = 0;
-	struct lsm6ds3_data *obj = obj_i2c_data;
-	struct lsm6ds3_gyro *gyro_obj = &obj->lsm6ds3_gyro_data;
-    ST_FUN();
-		
-    ST_LOG("gyro set cali:[%5d %5d %5d]\n", data[0], data[1], data[2]);
-    err = lsm6ds3_gyro_write_calibration(gyro_obj, data);
-    if (err) {
-        ST_LOG("lsm6ds3_gyro_write_calibration failed!\n");
-        return -1;
-    }
-		
-    return 0;
-}
-
-static int lsm6ds3_gyro_factory_enable_calibration(void)
-{
-	return 0;
-}
-
-static int lsm6ds3_gyro_factory_clear_cali(void)
-{
-    int err = 0;
-    struct lsm6ds3_data *obj = obj_i2c_data;
-	struct lsm6ds3_gyro *gyro_obj = &obj->lsm6ds3_gyro_data;
-		
-	ST_FUN();
-    err = lsm6ds3_gyro_reset_calibration(gyro_obj);
-    if (err) {
-        ST_LOG("lsm6ds3_gyro_reset_calibration failed!\n");
-        return -1;
-    }
-	
-    return 0;
-}
-
-static int lsm6ds3_gyro_factory_get_raw_data(int32_t data[3])
-{
-    ST_LOG("do not support raw data now!\n");
-    return 0;
-}
-
-static int lsm6ds3_gyro_factory_get_data(int32_t data[3], int *status)
-{
-    return lsm6ds3_gyro_get_data_intf(&data[0], &data[1], &data[2], status);
-}
-
-static int lsm6ds3_gyro_factory_enable_sensor(bool enable, int64_t sample_periods_ms)
-{
-    int err;
-
-    err = lsm6ds3_gyro_enable_nodata_intf(enable == true ? 1 : 0);
-    if (err) {
-        ST_LOG("lsm6ds3_gyro_enable_nodata_intf failed!\n");
-        return -1;
-    }
-        
-	return 0;
-}
-
-static struct gyro_factory_fops lsm6ds3_gyro_factory_fops = {
-    .enable_sensor      = lsm6ds3_gyro_factory_enable_sensor,
-    .get_data           = lsm6ds3_gyro_factory_get_data,
-    .get_raw_data       = lsm6ds3_gyro_factory_get_raw_data,
-    .enable_calibration = lsm6ds3_gyro_factory_enable_calibration,
-    .clear_cali         = lsm6ds3_gyro_factory_clear_cali,
-    .set_cali           = lsm6ds3_gyro_factory_set_cali,
-    .get_cali           = lsm6ds3_gyro_factory_get_cali,
-    .do_self_test       = lsm6ds3_gyro_factory_do_self_test,
-};
-
-static struct gyro_factory_public lsm6ds3_gyro_factory_device = {
-    .gain        = 1,
-    .sensitivity = 1,
-    .fops        = &lsm6ds3_gyro_factory_fops,
-};
-#endif
 
 static int lsm6ds3_gyro_local_init(struct platform_device *pdev)
 {
 	struct lsm6ds3_data *obj = obj_i2c_data;
 	struct lsm6ds3_gyro *gyro_obj = &obj->lsm6ds3_gyro_data;
-	struct lsm6ds3_acc *acc_obj = &obj->lsm6ds3_acc_data;
-	int res = 0, retry = 0;
+	int res = 0;
+	int retry = 0;
 	struct gyro_control_path ctl = {0};
 	struct gyro_data_path data = {0};    
-	//const u8 *name = "mediatek,lsm6ds3_gyro";
+	const u8 *name = "mediatek,lsm6ds3_gyro";
 	ST_FUN();
-	
-#if 0
+
 	gyro_obj->lsm6ds3_gyro_hw = get_gyro_dts_func(name, &lsm6ds3_gyro_cust_hw);
 	if (!gyro_obj->lsm6ds3_gyro_hw) {
 		ST_ERR("get lsm6ds3 dts info failed\n");
 	}
-#endif
 
-	gyro_obj->lsm6ds3_gyro_hw = &lsm6ds3_gyro_cust_hw;
-	gyro_obj->lsm6ds3_gyro_hw->direction = acc_obj->lsm6ds3_acc_hw->direction;
-	gyro_obj->lsm6ds3_gyro_hw->firlen = acc_obj->lsm6ds3_acc_hw->firlen;
-	
 	if ((res = hwmsen_get_convert(gyro_obj->lsm6ds3_gyro_hw->direction, &gyro_obj->cvt))) {
 		ST_ERR("invalid direction: %d\n", gyro_obj->lsm6ds3_gyro_hw->direction);
 		goto exit;
@@ -1125,33 +963,22 @@ static int lsm6ds3_gyro_local_init(struct platform_device *pdev)
 		goto exit_init_failed;
 
 	sprintf(gyro_obj->name, "%s_GYRO", obj->name);
-	
-#ifdef MISC_DEVICE_FACTORY
+
 	if ((res = misc_register(&lsm6ds3_gyro_device))) {
 		ST_ERR("lsm6ds3_gyro_device register failed\n");
 		goto exit_misc_device_register_failed;
 	}
-#else
-	res = gyro_factory_device_register(&lsm6ds3_gyro_factory_device);
-	if (res) {
-        ST_ERR("lsm6ds3_gyro_factory_device register failed!\n");
-        goto exit_misc_device_register_failed;
-    }
-#endif
 
 	if ((res = lsm6ds3_gyro_create_attr(&(lsm6ds3_gyro_init_info.platform_diver_addr->driver)))) {
 		ST_ERR("create attribute err = %d\n", res);
 		goto exit_create_attr_failed;
 	}
 
-	ctl.open_report_data	   = lsm6ds3_gyro_open_report_data_intf;
-	ctl.enable_nodata 	       = lsm6ds3_gyro_enable_nodata_intf;
-	ctl.set_delay  		       = lsm6ds3_gyro_set_delay_intf;
-	ctl.batch  		           = lsm6ds3_gyro_batch_intf;
-	ctl.flush				   = lsm6ds3_gyro_flush_intf;
 	ctl.is_use_common_factory  = false;
+	ctl.open_report_data	   = lsm6ds3_gyro_open_report_data_intf;
+	ctl.enable_nodata 	   = lsm6ds3_gyro_enable_nodata_intf;
+	ctl.set_delay  		   = lsm6ds3_gyro_set_delay_intf;
 	ctl.is_report_input_direct = false;
-	ctl.is_support_batch 	   = acc_obj->lsm6ds3_acc_hw->is_batch_supported;
 
 	res = gyro_register_control_path(&ctl);
 	if (res){
@@ -1171,11 +998,7 @@ static int lsm6ds3_gyro_local_init(struct platform_device *pdev)
 	return LSM6DS3_SUCCESS;
 
 exit_create_attr_failed:
-#ifdef MISC_DEVICE_FACTORY
 	misc_deregister(&lsm6ds3_gyro_device);
-#else
-	gyro_factory_device_deregister(&lsm6ds3_gyro_factory_device);
-#endif
 exit_misc_device_register_failed:
 exit_init_failed:
 exit_kfree:
@@ -1188,11 +1011,7 @@ exit:
 static int lsm6ds3_gyro_local_remove(void)
 {
 	ST_FUN(); 
-#ifdef MISC_DEVICE_FACTORY
 	misc_deregister(&lsm6ds3_gyro_device);
-#else
-	gyro_factory_device_deregister(&lsm6ds3_gyro_factory_device);
-#endif
 	lsm6ds3_gyro_delete_attr(&(lsm6ds3_gyro_init_info.platform_diver_addr->driver));
 
 	return LSM6DS3_SUCCESS;
@@ -1204,6 +1023,4 @@ struct gyro_init_info lsm6ds3_gyro_init_info = {
         .uninit = lsm6ds3_gyro_local_remove,
 };
 
-MODULE_DESCRIPTION("STMicroelectronics lsm6ds3 driver");
-MODULE_AUTHOR("Ian Yang, William Zeng");
-MODULE_LICENSE("GPL v2");
+

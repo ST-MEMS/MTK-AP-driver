@@ -1,17 +1,6 @@
-/* LSM6DS3 IMU driver
- *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- */
 
 #include "lsm6ds3.h"
+
 
 #if(CONFIG_STEP_COUNTER||CONFIG_STEP_DETECT||CONFIG_SIGNIFICANT_MOTION||CONFIG_TILT)
 static int LSM6DS3_embeded_feature_enable(int sensor ,int enable)
@@ -627,7 +616,7 @@ static int lsm6ds3_pedo_local_init(void)
 	ctl.step_c_set_delay 	   = lsm6ds3_step_c_set_delay_intf;
 	ctl.step_d_set_delay 	   = lsm6ds3_step_d_set_delay_intf;
 	ctl.is_report_input_direct = false;
-	ctl.is_smd_support_batch   = false;
+	ctl.is_support_batch 	   = false;
 
 	res = step_c_register_control_path(&ctl);
 	if (res) {
@@ -671,7 +660,3 @@ struct step_c_init_info lsm6ds3_pedo_init_info = {
 };
 
 #endif
-
-MODULE_DESCRIPTION("STMicroelectronics lsm6ds3 driver");
-MODULE_AUTHOR("Ian Yang, William Zeng");
-MODULE_LICENSE("GPL v2");

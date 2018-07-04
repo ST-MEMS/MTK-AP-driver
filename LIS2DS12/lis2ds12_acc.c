@@ -1,16 +1,4 @@
-/* LIS2DS12 AXL driver
- *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- */
- 
+
 #include "lis2ds12.h"
 
 static struct data_resolution lis2ds12_acc_data_resolution[] = {
@@ -811,16 +799,6 @@ static int lis2ds12_acc_set_delay_intf(u64 ns)
     return LIS2DS12_SUCCESS;
 }
 
-static int lis2ds12_acc_batch_intf(int flag, int64_t samplingPeriodNs, int64_t maxBatchReportLatencyNs)
-{
-	return lis2ds12_acc_set_delay_intf((u64)samplingPeriodNs);
-}
-
-static int lis2ds12_acc_flush_intf(void)
-{
-	return acc_flush_report();
-}
-
 static int lis2ds12_acc_get_data_intf(int *x ,int *y,int *z, int *status)
 {
     struct lis2ds12_data *obj = obj_i2c_data;
@@ -1063,27 +1041,19 @@ static int lis2ds12_acc_local_init(void)
 {
     struct lis2ds12_data *obj = obj_i2c_data;
     struct lis2ds12_acc *acc_obj = &obj->lis2ds12_acc_data;
-	struct i2c_client *client = obj->client;
     int ret = 0, retry = 0;
     struct acc_control_path ctl = { 0 };
     struct acc_data_path data = { 0 };    
-    //const u8 *name = "mediatek,lis2ds12_acc";
+    const u8 *name = "mediatek,lis2ds12_acc";
 	
     ST_FUN();
-#if 0	
+	
     acc_obj->lis2ds12_acc_hw = get_accel_dts_func(name, &lis2ds12_acc_cust_hw);
+
     if (!acc_obj->lis2ds12_acc_hw) {
         ST_ERR("get lis2ds12 dts info failed\n");
     }
-#else
-	res = get_accel_dts_func(client->dev.of_node, &lis2ds12_acc_cust_hw);
-	if (res < 0) {
-		ST_ERR("get dts info fail\n");
-		return -EFAULT;
-	}
 
-	acc_obj->lis2ds12_acc_hw = &lis2ds12_acc_cust_hw;
-#endif
     if ((ret = hwmsen_get_convert(acc_obj->lis2ds12_acc_hw->direction, &acc_obj->cvt))) {
         ST_ERR("invalid direction: %d\n", acc_obj->lis2ds12_acc_hw->direction);
         goto exit_get_direction_failed;
@@ -1127,14 +1097,11 @@ static int lis2ds12_acc_local_init(void)
         goto exit_create_attr_failed;
     }
 	
+    ctl.is_use_common_factory  = false;
     ctl.open_report_data       = lis2ds12_acc_open_report_data_intf;
     ctl.enable_nodata          = lis2ds12_acc_enable_nodata_intf;
     ctl.set_delay              = lis2ds12_acc_set_delay_intf;
-	ctl.batch 		   		   = lis2ds12_acc_batch_intf;	
-	ctl.flush 		   		   = lis2ds12_acc_flush_intf;
-	ctl.is_use_common_factory  = false;
     ctl.is_report_input_direct = false;
-	ctl.is_support_batch 	   = acc_obj->lis2ds12_acc_hw->is_batch_supported;
     
     ret = acc_register_control_path(&ctl);
     if (ret) {
@@ -1179,7 +1146,3 @@ struct acc_init_info lis2ds12_acc_init_info = {
     .init = lis2ds12_acc_local_init,
     .uninit = lis2ds12_acc_local_remove,
 };
-
-MODULE_DESCRIPTION("STMicroelectronics lis2ds12 driver");
-MODULE_AUTHOR("Ian Yang, William Zeng");
-MODULE_LICENSE("GPL v2");

@@ -1,16 +1,4 @@
-/* LIS2DS12 AXL driver
- *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- */
- 
+
 #include "lis2ds12.h"
 
 static struct i2c_driver lis2ds12_i2c_driver;
@@ -192,7 +180,44 @@ void dumpReg(struct lis2ds12_data *obj)
     }
 }
 
-#if (CONFIG_HARDWARE_INTERRUPT)
+static void lis2ds12_chip_power(struct lis2ds12_data *obj, unsigned int on) 
+{
+    return;
+}
+
+#if(CONFIG_HARDWARE_INTERRUPT)
+struct platform_device *stepPltFmDev;
+
+static int lis2ds12_probe(struct platform_device *pdev) 
+{
+    stepPltFmDev = pdev;
+    return LIS2DS12_SUCCESS;
+}
+
+static int lis2ds12_remove(struct platform_device *pdev)
+{
+    return LIS2DS12_SUCCESS;
+}
+
+#ifdef CONFIG_OF
+static const struct of_device_id gsensor_of_match[] = {
+    { .compatible = "mediatek,st_step_counter", },
+    {},
+};
+#endif
+
+static struct platform_driver lis2ds12_step_driver = {
+    .probe      = lis2ds12_probe,
+    .remove     = lis2ds12_remove,    
+    .driver     = {
+	.name  = "stepcounter",
+//	.owner	= THIS_MODULE,
+#ifdef CONFIG_OF
+	.of_match_table = gsensor_of_match,
+#endif
+    }
+};
+
 static irqreturn_t lis2ds12_isr(int irq, void *dev)
 {
     struct lis2ds12_data *obj = obj_i2c_data;
@@ -250,9 +275,9 @@ int lis2ds12_set_interrupt(void)
     struct lis2ds12_data *obj = obj_i2c_data;
     struct i2c_client *client = obj->client;
     struct device_node *node = NULL;
-    //struct pinctrl *pinctrl;
+    struct pinctrl *pinctrl;
     //struct pinctrl_state *pins_default;
-    //struct pinctrl_state *pins_cfg;
+    struct pinctrl_state *pins_cfg;
     u32 ints[2] = {0, 0};
     int ret = -1;
 	
@@ -272,7 +297,7 @@ int lis2ds12_set_interrupt(void)
 	return LIS2DS12_ERR_I2C;
     } 
 
-#if 0
+	
     /* gpio setting */
     pinctrl = devm_pinctrl_get(&stepPltFmDev->dev);
     if (IS_ERR(pinctrl)) {
@@ -295,7 +320,7 @@ int lis2ds12_set_interrupt(void)
     }
 	
     pinctrl_select_state(pinctrl, pins_cfg);
-#endif
+	
     node = of_find_compatible_node(NULL, NULL, "mediatek,gyroscope");
     if (node) {
 	ST_LOG("irq node is ok!");
@@ -484,7 +509,6 @@ int lis2ds12_i2c_delete_attr(struct device_driver *driver)
 }
 
 /*----------------------------------------------------------------------------*/
-#if 0
 static int lis2ds12_suspend(struct i2c_client *client, pm_message_t msg) 
 {
     struct lis2ds12_data *obj = i2c_get_clientdata(client);
@@ -509,6 +533,7 @@ static int lis2ds12_suspend(struct i2c_client *client, pm_message_t msg)
         
         atomic_set(&acc_obj->suspend, 1);
 	mutex_unlock(&lis2ds12_op_mutex);
+        lis2ds12_chip_power(obj, 0);
     }
 
 #if (CONFIG_HARDWARE_INTERRUPT)
@@ -531,6 +556,7 @@ static int lis2ds12_resume(struct i2c_client *client)
     int ret;
 
     ST_FUN();
+    lis2ds12_chip_power(obj, 1);
 
     if (obj->acc_enabled == 1) {
 	mutex_lock(&lis2ds12_op_mutex);
@@ -562,7 +588,6 @@ exit_failed:
     mutex_unlock(&lis2ds12_op_mutex);
     return ret; 
 }
-#endif
 
 static int lis2ds12_i2c_detect(struct i2c_client *client, struct i2c_board_info *info) 
 {    
@@ -610,13 +635,21 @@ static int lis2ds12_i2c_probe(struct i2c_client *client, const struct i2c_device
 #endif
 
 #if (CONFIG_HARDWARE_INTERRUPT)
-    //platform_driver_register(&lis2ds12_step_driver);
+    platform_driver_register(&lis2ds12_step_driver);
     ret = lis2ds12_set_interrupt();
     if (ret) {
 	ST_ERR("create interrupt error!\n");
 	goto exit_set_interrupt_failed;
     }
 #endif	
+
+    acc_driver_add(&lis2ds12_acc_init_info);
+#if (CONFIG_STEP_COUNTER || CONFIG_STEP_DETECT || CONFIG_SIGNIFICANT_MOTION)
+    step_c_driver_add(&lis2ds12_pedo_init_info);
+#endif
+#if (CONFIG_TILT)
+    tilt_driver_add(&lis2ds12_tilt_init_info);
+#endif
 
     ST_LOG("lis2ds12_i2c_probe successfully\n");
     return 0;
@@ -657,10 +690,8 @@ static struct i2c_driver lis2ds12_i2c_driver = {
     .probe              = lis2ds12_i2c_probe,
     .remove             = lis2ds12_i2c_remove,
     .detect             = lis2ds12_i2c_detect,
-#if 0	
     .suspend            = lis2ds12_suspend,
     .resume             = lis2ds12_resume,
-#endif
     .id_table           = lis2ds12_i2c_id,
 };
 
@@ -673,14 +704,6 @@ static int __init lis2ds12_module_init(void)
         ST_ERR("add acc driver error\n");
         return -1;
     }
-	
-	acc_driver_add(&lis2ds12_acc_init_info);
-#if (CONFIG_STEP_COUNTER || CONFIG_STEP_DETECT || CONFIG_SIGNIFICANT_MOTION)
-    step_c_driver_add(&lis2ds12_pedo_init_info);
-#endif
-#if (CONFIG_TILT)
-    tilt_driver_add(&lis2ds12_tilt_init_info);
-#endif
 	
     return LIS2DS12_SUCCESS;
 }
@@ -695,6 +718,5 @@ static void __exit lis2ds12_module_exit(void)
 module_init(lis2ds12_module_init);
 module_exit(lis2ds12_module_exit);
 
-MODULE_DESCRIPTION("STMicroelectronics lis2ds12 driver");
-MODULE_AUTHOR("Ian Yang, William Zeng");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("LIS2DS12 I2C driver");

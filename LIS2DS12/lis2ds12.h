@@ -3,22 +3,35 @@
  *
  * File Name: 	lis2ds12.h
  * Authors: 	Ian Yang, William Zeng
- * Version: 	V3.0.4
- * Date: 		02/08/2018
+ * Version: 	V3.0.3
+ * Date: 	07/05/2017
  * Description: LIS2DS12 driver source file
  *
  *********************************************************************************************************
  * Copyright (c) 2017, STMicroelectronics.
  * All rights reserved.
  *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *     1. Redistributions of source code must retain the above copyright
+ *      notice, this list of conditions and the following disclaimer.
+ *     2. Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer in the
+ *       documentation and/or other materials provided with the distribution.
+ *     3. Neither the name of the STMicroelectronics nor the
+ *       names of its contributors may be used to endorse or promote products
+ *       derived from this software without specific prior written permission.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY
+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************************************************
  * REVISON HISTORY
  *
@@ -27,7 +40,6 @@
  * 3.0.1   | 06/15/2017    | MTK driver initial version
  * 3.0.2   | 07/03/2017	   | add Kconfig
  * 3.0.3   | 07/05/2017	   | fixed ATA test bug
- * 3.0.4   | 02/08/2018	   | modified driver to be compatible with Android O
  *
  ****************************************************************************************************/
 
@@ -39,7 +51,7 @@
 #include <hwmsensor.h>
 #include <accel.h>
 #include <step_counter.h>
-//#include <tilt_detector.h>
+#include <tilt_detector.h>
 #include <cust_acc.h>
 #include <linux/irq.h>
 #include <linux/gpio.h>
@@ -50,9 +62,9 @@
 #define DEBUG 1
 
 #define CONFIG_STEP_COUNTER              1
-#define CONFIG_STEP_DETECT               0
-#define CONFIG_SIGNIFICANT_MOTION        0
-#define CONFIG_TILT                      0
+#define CONFIG_STEP_DETECT               1
+#define CONFIG_SIGNIFICANT_MOTION        1
+#define CONFIG_TILT                      1
 
 #define CONFIG_PEDOMETER_ALWAYS_ON       0   //this mean the peodometer still work even system in susupend .
 
@@ -219,7 +231,7 @@
 /* 1 rad = 180/PI degree, MAX_LSB = 131, */
 /* 180*131/PI = 7506 */
 #define DEGREE_TO_RAD    	  7506
-//#define CONFIG_LIS2DS12_LOWPASS   /*apply low pass filter on output*/       
+#define CONFIG_LIS2DS12_LOWPASS   /*apply low pass filter on output*/       
 
 /*----------------------------------------------------------------------------*/
 typedef enum {

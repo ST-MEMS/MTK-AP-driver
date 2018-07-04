@@ -1,33 +1,4 @@
 
-/********************************* (C) COPYRIGHT 2018 STMicroelectronics ********************************
- *
- * File Name         : n2dm.h
- * Authors           : William ZENG
- * Version           : V1.0.2
- * Date              : 03/05/2018
- * Description       : N2DM driver source file
- *
- *********************************************************************************************************
-  * Copyright (c) 2018, STMicroelectronics.
- * All rights reserved.
- *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *********************************************************************************************************
- * REVISON HISTORY
- *
- * VERSION | DATE          | DESCRIPTION
- *
- * 1.0.2   | 03/05/2018	   | modified driver to be compatible with Android O
- * 
- ****************************************************************************************************/
-
 #ifndef N2DM_H
 #define N2DM_H
 	 
@@ -66,7 +37,6 @@
 #define N2DM_RANGE_2G			0x00
 #define N2DM_RANGE_4G			0x10
 #define N2DM_RANGE_8G			0x20 //8g or 2g no ohter choise//changed
-#define N2DM_RANGE_16G			0x30
 
 #define N2DM_SELF_TEST			0x10 //changed
 	 

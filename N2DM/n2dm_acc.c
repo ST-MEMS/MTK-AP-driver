@@ -1,16 +1,4 @@
-/* N2DM driver
- *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- */
- 
+
 #include "n2dm.h"
 
 /*----------------------------------------------------------------------------*/
@@ -24,7 +12,7 @@ static struct data_resolution n2dm_data_resolution[] = {
 static struct data_resolution n2dm_offset_resolution = {{15, 6}, 64};
 static struct GSENSOR_VECTOR3D gsensor_gain, gsensor_offset;
 struct acc_hw n2dm_cust_hw;
-int n2dm_acc_init_flag = -1; // 0<==>OK -1 <==> fail
+int n2dm_acc_init_flag =-1; // 0<==>OK -1 <==> fail
 /*----------------------------------------------------------------------------*/
 
 
@@ -72,18 +60,23 @@ static int n2dm_acc_read_rawdata(struct n2dm_acc *acc_obj, s16 data[N2DM_AXES_NU
 {
     
     struct n2dm_data *obj = container_of(acc_obj, struct n2dm_data, n2dm_acc_data);
-	struct i2c_client *client = obj->client;  
+	struct i2c_client *client = obj->client;
+    
     u8 buf[N2DM_DATA_LEN] = {0};
     int err = 0;
 
-    if (NULL == client) {
+    if(NULL == client)
+    {
         err = -EINVAL;
-    } else {     
-		if ((n2dm_i2c_read_block(client, N2DM_REG_OUT_X, buf, 0x01)) < 0) {
+    }
+    
+    else
+    {
+        if((n2dm_i2c_read_block(client, N2DM_REG_OUT_X, buf, 0x01))<0)
+        {
            ST_ERR("read  G sensor data register err!\n");
              return -1;
         }
-		
         if((n2dm_i2c_read_block(client, N2DM_REG_OUT_X+1, &buf[1], 0x01))<0)
         {
            ST_ERR("read  G sensor data register err!\n");
@@ -113,7 +106,7 @@ static int n2dm_acc_read_rawdata(struct n2dm_acc *acc_obj, s16 data[N2DM_AXES_NU
              return -1;
         }
 
-		data[N2DM_AXIS_X] = ( (s16) ( ( (buf[1] << 8) | buf[0] ) ) ) >> 4;
+	data[N2DM_AXIS_X] = ( (s16) ( ( (buf[1] << 8) | buf[0] ) ) ) >> 4;
         data[N2DM_AXIS_Y] = ( (s16) ( ( (buf[3] << 8) | buf[2] ) ) ) >> 4;
         data[N2DM_AXIS_Z] = ( (s16) ( ( (buf[5] << 8) | buf[4] ) ) ) >> 4;
 
@@ -237,7 +230,8 @@ static int n2dm_acc_set_full_scale(struct n2dm_acc *acc_obj, u8 dataformat)
 
     memset(databuf, 0, sizeof(u8)*10);
 
-    if ((n2dm_i2c_read_block(client, addr, databuf, 0x01)) < 0) {
+    if((n2dm_i2c_read_block(client, addr, databuf, 0x01))<0)
+    {
         ST_ERR("read reg_ctl_reg1 register err!\n");
         return N2DM_ERR_I2C;
     }
@@ -246,7 +240,9 @@ static int n2dm_acc_set_full_scale(struct n2dm_acc *acc_obj, u8 dataformat)
     databuf[0] |= dataformat;
 
     res = n2dm_i2c_write_block(client, N2DM_REG_CTL_REG4, databuf, 0x1);
-    if (res < 0) {
+
+    if(res < 0)
+    {
         return N2DM_ERR_I2C;
     }
     
@@ -290,29 +286,34 @@ int n2dm_acc_set_power_mode(struct n2dm_acc *acc_obj, bool state)
     u8 databuf[2];    
     int res = 0;
 
-    if (state == acc_obj->n2dm_acc_power) {
+    if(state == acc_obj->n2dm_acc_power)
+    {
         ST_LOG("Sensor power status is newest!\n");
         return N2DM_SUCCESS;
     }
 
-    if (state == true) {
-		if (acc_obj->odr == 0)
-			acc_obj->odr = N2DM_BW_100HZ;
-
+      if(state == true && acc_obj->enabled == 1)
+    {
 		res = n2dm_acc_set_odr(acc_obj, acc_obj->odr);  
-    } else {
+		
+    }
+
+    else if(state == false)
+    {
 		res = n2dm_acc_set_odr(acc_obj, N2DM_BW_0HZ);
     }
 	
-    if (res < 0) {
+    if(res < 0)
+    {
         ST_LOG("set power mode failed!\n");
         return N2DM_ERR_I2C;
-    } else if (atomic_read(&acc_obj->trace) & ADX_TRC_INFO) {
+    }
+    else if(atomic_read(&acc_obj->trace) & ADX_TRC_INFO)
+    {
         ST_LOG("set power mode ok %d!\n", databuf[1]);
     }
 	
 	acc_obj->n2dm_acc_power = state;
-	
     return N2DM_SUCCESS;    
 }
 /*----------------------------------------------------------------------------*/
@@ -343,7 +344,7 @@ int n2dm_acc_init(struct n2dm_acc *acc_obj, int reset_cali)
         return res;
     }
 
-    res = n2dm_acc_set_full_scale(acc_obj, N2DM_RANGE_2G); //8g or 2G no oher choise
+    res = n2dm_acc_set_full_scale(acc_obj, N2DM_RANGE_2G);//8g or 2G no oher choise
     if(res < 0) 
     {
         ST_ERR("n2dm_acc_init step 3!\n");
@@ -934,6 +935,7 @@ static int n2dm_acc_open_report_data_intf(int open)
 }
 
 // if use  this typ of enable , Gsensor only enabled but not report inputEvent to HAL
+
 static int n2dm_acc_enable_nodata_intf(int en)
 {
     struct n2dm_data *obj = obj_i2c_data;
@@ -941,20 +943,21 @@ static int n2dm_acc_enable_nodata_intf(int en)
     int res =0;
     bool power = false;
     
-    if (1 == en)
+    if(1==en)
+    {
         power = true;
-    else if (0 == en)
+    }
+    if(0==en)
+    {
         power = false;
- 
+    }
 	acc_obj->enabled = en;
-	
     res = n2dm_acc_set_power_mode(acc_obj, power);
     if(res != N2DM_SUCCESS)
     {
         ST_ERR("n2dm_acc_set_power_mode fail!\n");
         return -1;
     }
-	
     ST_LOG("n2dm_acc_enable_nodata_intf OK!\n");
     return 0;
 }
@@ -1005,16 +1008,6 @@ static int n2dm_acc_set_delay_intf(u64 ns)
     
     ST_LOG("n2dm_acc_set_delay_intf (%d)\n",value);
     return 0;
-}
-
-static int n2dm_acc_batch_intf(int flag, int64_t samplingPeriodNs, int64_t maxBatchReportLatencyNs)
-{
-	return n2dm_acc_set_delay_intf((u64)samplingPeriodNs);
-}
-
-static int n2dm_acc_flush_intf(void)
-{
-	return acc_flush_report();
 }
 
 static int n2dm_acc_get_data_intf(int* x ,int* y,int* z, int* status)
@@ -1108,7 +1101,16 @@ static long n2dm_acc_unlocked_ioctl(struct file *file, unsigned int cmd,
                 break;      
             }
             n2dm_acc_set_power_mode(acc_obj, true);
-			
+
+	    if(acc_obj->odr != N2DM_BW_100HZ)                                 
+    	    {
+       		err = n2dm_acc_set_odr(acc_obj, N2DM_BW_100HZ); 	
+		if(err<0)
+		{
+			ST_ERR("SET_ODR_100HZ_FAil!\n");
+			break;
+		}
+    	    }
             n2dm_acc_read_data(acc_obj, strbuf, N2DM_BUFSIZE);
             if(copy_to_user(data, strbuf, strlen(strbuf)+1))
             {
@@ -1318,27 +1320,18 @@ static int n2dm_acc_local_init(void)
 {
     struct n2dm_data *obj = obj_i2c_data;
     struct n2dm_acc *acc_obj = &obj->n2dm_acc_data;
-	struct i2c_client *client = obj->client;
-    int err = 0, retry = 0;
-    struct acc_control_path ctl = {0};
-    struct acc_data_path data = {0};    
-    //const u8 *name = "mediatek,n2dm";	
+    int err = 0;
+    int retry = 0;
+    struct acc_control_path ctl={0};
+    struct acc_data_path data={0};    
+    const u8 *name = "mediatek,n2dm";	
     ST_FUN();
 
-#if 0
     acc_obj->n2dm_acc_hw = get_accel_dts_func(name, &n2dm_cust_hw);
+
     if (!acc_obj->n2dm_acc_hw) {
         ST_ERR("get n2dm dts info failed\n");
     }
-#else
-	err = get_accel_dts_func(client->dev.of_node, &n2dm_cust_hw);
-	if (err < 0) {
-		ST_ERR("get n2dm dts info fail\n");
-		return -EFAULT;
-	}
-
-	acc_obj->n2dm_acc_hw = &n2dm_cust_hw;
-#endif
 
     if((err = hwmsen_get_convert(acc_obj->n2dm_acc_hw->direction, &acc_obj->cvt)))
     {
@@ -1365,8 +1358,8 @@ static int n2dm_acc_local_init(void)
     }
 #endif
 
-    for (retry = 0; retry < 3; retry++) {
-        if ((err = n2dm_acc_init(acc_obj, 1)))
+    for(retry = 0; retry < 3; retry++){
+        if((err = n2dm_acc_init(acc_obj, 1)))
         {
             ST_ERR("n2dm_acc_device init cilent fail time: %d\n", retry);
             continue;
@@ -1386,15 +1379,11 @@ static int n2dm_acc_local_init(void)
         ST_ERR("create attribute err = %d\n", err);
         goto exit_create_attr_failed;
     }
-
-    ctl.open_report_data       = n2dm_acc_open_report_data_intf;
-    ctl.enable_nodata          = n2dm_acc_enable_nodata_intf;
-    ctl.set_delay  			   = n2dm_acc_set_delay_intf;
-	ctl.batch 		           = n2dm_acc_batch_intf;	
-	ctl.flush 		   		   = n2dm_acc_flush_intf;
-	ctl.is_use_common_factory  = false;
-	ctl.is_report_input_direct = false;
-	ctl.is_support_batch 	   = acc_obj->n2dm_acc_hw->is_batch_supported;
+    ctl.is_use_common_factory = false;
+    ctl.open_report_data= n2dm_acc_open_report_data_intf;
+    ctl.enable_nodata = n2dm_acc_enable_nodata_intf;
+    ctl.set_delay  = n2dm_acc_set_delay_intf;
+    ctl.is_report_input_direct = false;
     
     err = acc_register_control_path(&ctl);
     if(err)
@@ -1403,7 +1392,7 @@ static int n2dm_acc_local_init(void)
         goto exit_kfree;
     }
 
-    data.get_data   = n2dm_acc_get_data_intf;
+    data.get_data = n2dm_acc_get_data_intf;
     data.vender_div = 1000;
     err = acc_register_data_path(&data);
     if(err) {
@@ -1440,11 +1429,9 @@ static int n2dm_acc_local_remove(void)
 
 /*----------------------------------------------------------------------------*/
 struct acc_init_info n2dm_acc_init_info = {
-    .name   = "n2dm",
-    .init   = n2dm_acc_local_init,
-    .uninit = n2dm_acc_local_remove,
+        .name = "n2dm",
+        .init = n2dm_acc_local_init,
+        .uninit = n2dm_acc_local_remove,
 };
 
-MODULE_DESCRIPTION("STMicroelectronics n2dm driver");
-MODULE_AUTHOR("William Zeng");
-MODULE_LICENSE("GPL v2");
+

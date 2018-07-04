@@ -1,17 +1,14 @@
-/* N2DM driver
- *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- */
- 
+
 #include "n2dm.h"
+
+static const struct i2c_device_id n2dm_i2c_id[] = {{N2DM_DEV_NAME,0},{}};
+
+#ifdef CONFIG_OF
+static const struct of_device_id n2dm_of_match[] = {
+    {.compatible = "mediatek,gsensor"},
+    {}
+};
+#endif
 
 static struct i2c_driver n2dm_i2c_driver;
 
@@ -20,6 +17,8 @@ struct n2dm_data *obj_i2c_data = NULL;
 static DEFINE_MUTEX(n2dm_i2c_mutex);
 static DEFINE_MUTEX(n2dm_op_mutex);
 
+//int sensor_suspend = 0;
+//int sensor_suspend = 0;
 /*--------------------read function----------------------------------*/
 int n2dm_i2c_read_block(struct i2c_client *client, u8 addr, u8 *data, u8 len)
 {
@@ -105,18 +104,24 @@ int n2dm_i2c_write_block(struct i2c_client *client, u8 addr, u8 *data, u8 len)
 void dumpReg(struct n2dm_data *obj)
 {
     struct i2c_client *client = obj->client;
-    int i = 0;
-    u8 addr = 0x20, regdata = 0;
-	
-    for (i = 0; i < 16; i++) {
+
+    int i=0;
+    u8 addr = 0x20;
+    u8 regdata=0;
+    for(i=0; i<16; i++)
+    {
         //dump all
         n2dm_i2c_read_block(client,addr,&regdata,1);
         ST_LOG("Reg addr=%x regdata=%x\n",addr,regdata);
         addr++;
     }
 }
-
 /*--------------------ADXL power control function----------------------------------*/
+static void n2dm_chip_power(struct n2dm_data *obj, unsigned int on) 
+{
+    return;
+}
+
 #ifdef CONFIG_N2DM_ACC_DRY
 int n2dm_set_interrupt(struct n2dm_data *obj, u8 intenable)
 {
@@ -307,7 +312,72 @@ int n2dm_i2c_delete_attr(struct device_driver *driver)
 
     return err;
 }
-
+/*----------------------------------------------------------------------------*/
+static int n2dm_suspend(struct i2c_client *client, pm_message_t msg) 
+{
+    struct n2dm_data *obj = i2c_get_clientdata(client);
+    struct n2dm_acc *acc_obj = &obj->n2dm_acc_data;
+    int err = 0;
+	
+    ST_FUN();
+    
+    if((msg.event == PM_EVENT_SUSPEND) && (acc_obj->enabled == 1))
+    {   
+        if(obj == NULL)
+        {    
+            mutex_unlock(&n2dm_op_mutex);
+            ST_ERR("null pointer!!\n");
+            return -EINVAL;
+        }
+        err = n2dm_acc_set_power_mode(acc_obj, false);
+		
+        if(err)
+        {
+            ST_ERR("write power control fail!!\n");
+            mutex_unlock(&n2dm_op_mutex);
+            return err;        
+        }
+        
+        atomic_set(&acc_obj->suspend, 1);
+		mutex_unlock(&n2dm_op_mutex);
+        n2dm_chip_power(obj, 0);
+    }
+    
+	ST_LOG("n2dm i2c suspended\n");
+    return err;
+}
+/*----------------------------------------------------------------------------*/
+static int n2dm_resume(struct i2c_client *client)
+{
+    struct n2dm_data *obj = i2c_get_clientdata(client);
+    struct n2dm_acc *acc_obj = &obj->n2dm_acc_data;
+    int err;
+	
+    ST_FUN();
+    n2dm_chip_power(obj, 1);
+	if (acc_obj->enabled == 1) 
+    {
+	    mutex_lock(&n2dm_op_mutex);
+	    if(obj == NULL)
+	    {
+		    mutex_unlock(&n2dm_op_mutex);
+		    ST_ERR("null pointer!!\n");
+		    return -EINVAL;
+	    }
+    
+        err = n2dm_acc_set_power_mode(acc_obj, true);
+        if(err)
+        {
+            mutex_unlock(&n2dm_op_mutex);
+            ST_ERR("initialize client fail!!\n");
+            return err;        
+        }
+        atomic_set(&acc_obj->suspend, 0);
+        mutex_unlock(&n2dm_op_mutex);
+    }
+	ST_LOG("n2dm i2c resumed\n");
+    return 0;
+}
 /*----------------------------------------------------------------------------*/
 static int n2dm_i2c_detect(struct i2c_client *client, struct i2c_board_info *info) 
 {    
@@ -320,10 +390,12 @@ static int n2dm_i2c_detect(struct i2c_client *client, struct i2c_board_info *inf
 static int n2dm_i2c_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
     struct n2dm_data *obj;
+	
     int err = 0;
 	ST_FUN();
 	
-	if (!(obj = kzalloc(sizeof(*obj), GFP_KERNEL))) {
+	if(!(obj = kzalloc(sizeof(*obj), GFP_KERNEL)))
+    {
         err = -ENOMEM;
 		return err;
     }
@@ -333,18 +405,20 @@ static int n2dm_i2c_probe(struct i2c_client *client, const struct i2c_device_id 
     i2c_set_clientdata(client, obj);
 	
 	err = n2dm_check_device_id(obj);
-	if (err) {
+	if (err)
+	{
         ST_ERR("check device error!\n");
 		goto exit_check_device_failed;
 	}
 
     err = n2dm_i2c_create_attr(&n2dm_i2c_driver.driver);
-	if (err) {
+	if (err)
+	{
         ST_ERR("create attr error!\n");
 		goto exit_create_attr_failed;
 	}
 #ifdef CONFIG_N2DM_ACC_DRY
-	//TODO: request irq for data ready of SMD, TILT, etc.
+	//TODO: request irq for data ready or pedometer, SMD, TILT, etc.
 #endif	
     acc_driver_add(&n2dm_acc_init_info);
 
@@ -365,15 +439,6 @@ static int n2dm_i2c_remove(struct i2c_client *client)
     return 0;
 }
 /*----------------------------------------------------------------------------*/
-static const struct i2c_device_id n2dm_i2c_id[] = {{N2DM_DEV_NAME,0},{}};
-
-#ifdef CONFIG_OF
-static const struct of_device_id n2dm_of_match[] = {
-    {.compatible = "mediatek,gsensor"},
-    {}
-};
-#endif
-
 static struct i2c_driver n2dm_i2c_driver = {
     .driver = {
         .name           = N2DM_DEV_NAME,
@@ -384,6 +449,8 @@ static struct i2c_driver n2dm_i2c_driver = {
     .probe              = n2dm_i2c_probe,
     .remove             = n2dm_i2c_remove,
     .detect             = n2dm_i2c_detect,
+    .suspend            = n2dm_suspend,
+    .resume             = n2dm_resume,
     .id_table           = n2dm_i2c_id,
 };
 
@@ -391,8 +458,8 @@ static struct i2c_driver n2dm_i2c_driver = {
 static int __init n2dm_module_init(void)
 {
     ST_FUN();
-	
-    if (i2c_add_driver(&n2dm_i2c_driver)) {
+    if(i2c_add_driver(&n2dm_i2c_driver))
+    {
         ST_ERR("add driver error\n");
         return -1;
     }
@@ -409,8 +476,6 @@ static void __exit n2dm_module_exit(void)
 /*----------------------------------------------------------------------------*/
 module_init(n2dm_module_init);
 module_exit(n2dm_module_exit);
-
 /*----------------------------------------------------------------------------*/
-MODULE_DESCRIPTION("STMicroelectronics n2dm driver");
-MODULE_AUTHOR("William Zeng");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("N2DM I2C driver");

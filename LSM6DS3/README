@@ -9,7 +9,3 @@
  * 3.0.4   | 08/25/2017    | add gyro suspend and resume operation
  * 3.0.5   | 09/25/2017    | reserved for SPI driver version
  * 3.0.6   | 09/25/2017    | fixed bugs in factory mode
- * 3.0.7   | 02/08/2018    | modified driver to be compatible with Android O
- * 3.0.8   | 04/11/2018    | add gyro turn-on time to fix VTS gyro test error
- * 3.0.9   | 05/14/2018    | fixed a compile error and add gyro flush interface
- * 3.1.0   | 05/15/2018    | optimized factory mode calibration functions

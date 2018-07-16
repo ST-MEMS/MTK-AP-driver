@@ -638,7 +638,7 @@ static int lsm6ds3c_pedo_local_init(void)
     ctl.step_c_set_delay       = lsm6ds3c_step_c_set_delay_intf;
     ctl.step_d_set_delay       = lsm6ds3c_step_d_set_delay_intf;
     ctl.is_report_input_direct = false;
-    ctl.is_support_batch       = false;
+    ctl.is_smd_support_batch   = false;
 
     res = step_c_register_control_path(&ctl);
     if (res) {

@@ -167,20 +167,10 @@ static int lsm6ds3c_gyro_write_calibration(struct lsm6ds3c_gyro *gyro_obj, int d
 	if (!gyro_obj || !dat) {
 		ST_ERR("null ptr!!\n");
 		return -EINVAL;
-	} else {        
-		s16 cali[LSM6DS3C_AXES_NUM];
-
-		cali[gyro_obj->cvt.map[LSM6DS3C_AXIS_X]] = gyro_obj->cvt.sign[LSM6DS3C_AXIS_X]*gyro_obj->cali_sw[LSM6DS3C_AXIS_X];
-		cali[gyro_obj->cvt.map[LSM6DS3C_AXIS_Y]] = gyro_obj->cvt.sign[LSM6DS3C_AXIS_Y]*gyro_obj->cali_sw[LSM6DS3C_AXIS_Y];
-		cali[gyro_obj->cvt.map[LSM6DS3C_AXIS_Z]] = gyro_obj->cvt.sign[LSM6DS3C_AXIS_Z]*gyro_obj->cali_sw[LSM6DS3C_AXIS_Z]; 
-
-		cali[LSM6DS3C_AXIS_X] += dat[LSM6DS3C_AXIS_X];
-		cali[LSM6DS3C_AXIS_Y] += dat[LSM6DS3C_AXIS_Y];
-		cali[LSM6DS3C_AXIS_Z] += dat[LSM6DS3C_AXIS_Z];
-
-		gyro_obj->cali_sw[LSM6DS3C_AXIS_X] += gyro_obj->cvt.sign[LSM6DS3C_AXIS_X]*cali[gyro_obj->cvt.map[LSM6DS3C_AXIS_X]];
-		gyro_obj->cali_sw[LSM6DS3C_AXIS_Y] += gyro_obj->cvt.sign[LSM6DS3C_AXIS_Y]*cali[gyro_obj->cvt.map[LSM6DS3C_AXIS_Y]];
-		gyro_obj->cali_sw[LSM6DS3C_AXIS_Z] += gyro_obj->cvt.sign[LSM6DS3C_AXIS_Z]*cali[gyro_obj->cvt.map[LSM6DS3C_AXIS_Z]];
+	} else {
+		gyro_obj->cali_sw[LSM6DS3C_AXIS_X] += gyro_obj->cvt.sign[LSM6DS3C_AXIS_X]*dat[gyro_obj->cvt.map[LSM6DS3C_AXIS_X]];
+		gyro_obj->cali_sw[LSM6DS3C_AXIS_Y] += gyro_obj->cvt.sign[LSM6DS3C_AXIS_Y]*dat[gyro_obj->cvt.map[LSM6DS3C_AXIS_Y]];
+		gyro_obj->cali_sw[LSM6DS3C_AXIS_Z] += gyro_obj->cvt.sign[LSM6DS3C_AXIS_Z]*dat[gyro_obj->cvt.map[LSM6DS3C_AXIS_Z]];
 	} 
 
 	return res;

@@ -76,7 +76,7 @@ static int lsm6ds3c_acc_read_rawdata(struct lsm6ds3c_acc *acc_obj, s16 data[LSM6
 	}
 
 	if ((lsm6ds3c_i2c_read_block(client, LSM6DS3C_REG_OUTX_L_XL, buf, 0x06)) < 0) {
-		ST_ERR("read  G sensor data register err!\n");
+		ST_ERR("read Gsensor data register err!\n");
 		return -1;
 	}
 
@@ -179,19 +179,9 @@ static int lsm6ds3c_acc_write_calibration(struct lsm6ds3c_acc *acc_obj, int dat[
 		ST_ERR("null ptr!!\n");
 		return -EINVAL;
 	} else {       
-		s16 cali[LSM6DS3C_AXES_NUM];
-
-		cali[acc_obj->cvt.map[LSM6DS3C_AXIS_X]] = acc_obj->cvt.sign[LSM6DS3C_AXIS_X]*acc_obj->cali_sw[LSM6DS3C_AXIS_X];
-		cali[acc_obj->cvt.map[LSM6DS3C_AXIS_Y]] = acc_obj->cvt.sign[LSM6DS3C_AXIS_Y]*acc_obj->cali_sw[LSM6DS3C_AXIS_Y];
-		cali[acc_obj->cvt.map[LSM6DS3C_AXIS_Z]] = acc_obj->cvt.sign[LSM6DS3C_AXIS_Z]*acc_obj->cali_sw[LSM6DS3C_AXIS_Z]; 
-
-		cali[LSM6DS3C_AXIS_X] += dat[LSM6DS3C_AXIS_X];
-		cali[LSM6DS3C_AXIS_Y] += dat[LSM6DS3C_AXIS_Y];
-		cali[LSM6DS3C_AXIS_Z] += dat[LSM6DS3C_AXIS_Z];
-
-		acc_obj->cali_sw[LSM6DS3C_AXIS_X] += acc_obj->cvt.sign[LSM6DS3C_AXIS_X]*cali[acc_obj->cvt.map[LSM6DS3C_AXIS_X]];
-		acc_obj->cali_sw[LSM6DS3C_AXIS_Y] += acc_obj->cvt.sign[LSM6DS3C_AXIS_Y]*cali[acc_obj->cvt.map[LSM6DS3C_AXIS_Y]];
-		acc_obj->cali_sw[LSM6DS3C_AXIS_Z] += acc_obj->cvt.sign[LSM6DS3C_AXIS_Z]*cali[acc_obj->cvt.map[LSM6DS3C_AXIS_Z]];
+		acc_obj->cali_sw[LSM6DS3C_AXIS_X] += acc_obj->cvt.sign[LSM6DS3C_AXIS_X]*dat[acc_obj->cvt.map[LSM6DS3C_AXIS_X]];
+		acc_obj->cali_sw[LSM6DS3C_AXIS_Y] += acc_obj->cvt.sign[LSM6DS3C_AXIS_Y]*dat[acc_obj->cvt.map[LSM6DS3C_AXIS_Y]];
+		acc_obj->cali_sw[LSM6DS3C_AXIS_Z] += acc_obj->cvt.sign[LSM6DS3C_AXIS_Z]*dat[acc_obj->cvt.map[LSM6DS3C_AXIS_Z]];
 	} 
 
 	return res;
@@ -919,6 +909,7 @@ static int lsm6ds3c_acc_flush_intf(void)
 {
 	return acc_flush_report();
 }
+
 static int lsm6ds3c_acc_get_data_intf(int* x ,int* y,int* z, int* status)
 {
 	struct lsm6ds3c_data *obj = obj_i2c_data;

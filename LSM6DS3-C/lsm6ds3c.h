@@ -3,8 +3,8 @@
  *
  * File Name         : lsm6ds3c.h
  * Authors           : IAN YANG, William Zeng
- * Version           : V3.1.0
- * Date              : 05/15/2018
+ * Version           : V3.1.1
+ * Date              : 07/12/2018
  * Description       : lsm6ds3tr-c driver source file
  *
  *********************************************************************************************************
@@ -35,6 +35,7 @@
  * 3.0.8   | 04/11/2018	   | add gyro turn-on time to fix VTS gyro test error
  * 3.0.9   | 05/14/2018	   | fixed a compile error and add gyro flush interface
  * 3.1.0   | 05/15/2018	   | optimized factory mode calibration functions
+ * 3.1.1   | 07/12/2018	   | optimized interrupt configuration and calibration functions
  *
  ****************************************************************************************************/
 
@@ -55,8 +56,9 @@
 #include <linux/interrupt.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
+#include <linux/of.h>
 
-#define DEBUG 				    1
+#define DEBUG 				 1
 
 #define CONFIG_STEP_COUNTER              1
 #define CONFIG_STEP_DETECT               0

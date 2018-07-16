@@ -3,8 +3,8 @@
  *
  * File Name         : Lsm6ds3.h
  * Authors           : IAN YANG, William ZENG
- * Version           : V3.1.0
- * Date              : 05/15/2018
+ * Version           : V3.1.1
+ * Date              : 07/13/2018
  * Description       : LSM6DS3 driver source file
  *
  *********************************************************************************************************
@@ -35,6 +35,7 @@
  * 3.0.8   | 04/11/2018	   | add gyro turn-on time to fix VTS gyro test error
  * 3.0.9   | 05/14/2018	   | fixed a compile error and add gyro flush interface
  * 3.1.0   | 05/15/2018	   | optimized factory mode calibration functions
+ * 3.1.1   | 07/13/2018	   | optimized interrupt configuration and calibration functions
  * 
  ****************************************************************************************************/
 
@@ -55,6 +56,7 @@
 #include <linux/interrupt.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
+#include <linux/of.h>
 
 #define DEBUG 1
 
@@ -167,6 +169,7 @@
 #define LSM6DS3_REG_FUNC_CFG_ACCESS_ENABLE            0x80
 #define LSM6DS3_REG_FUNC_CFG_ACCESS_DISABLE           0x00
 
+#define LSM6DS3_REG_CTRL1_XL_ODR_416HZ		      0x06
 #define LSM6DS3_REG_CTRL1_XL_ODR_208HZ		      0x05
 #define LSM6DS3_REG_CTRL1_XL_ODR_104HZ		      0x04
 #define LSM6DS3_REG_CTRL1_XL_ODR_52HZ		      0x03
@@ -179,7 +182,7 @@
 #define LSM6DS3_REG_CTRL1_XL_FS_8G	              0x03
 #define LSM6DS3_REG_CTRL1_XL_FS_16G	              0x01
 
-
+#define LSM6DS3_REG_CTRL2_G_ODR_416HZ		      0x06
 #define LSM6DS3_REG_CTRL2_G_ODR_208HZ		      0x05
 #define LSM6DS3_REG_CTRL2_G_ODR_104HZ		      0x04
 #define LSM6DS3_REG_CTRL2_G_ODR_52HZ		      0x03

@@ -13,6 +13,9 @@
  
 #include "lsm6ds3.h"
 
+static int print_data_flag = 0;
+static int print_data_num = 0;
+
 static struct data_resolution lsm6ds3_acc_data_resolution[] = {
 	/* combination by {FULL_RES,RANGE}*/
 	{{ 0, 0}, 61},     //2g   1LSB=61 ug
@@ -71,7 +74,7 @@ static int lsm6ds3_acc_read_rawdata(struct lsm6ds3_acc *acc_obj, s16 data[LSM6DS
 		res = -EINVAL;
 	} else {
 		if ((lsm6ds3_i2c_read_block(client, LSM6DS3_REG_OUTX_L_XL, buf, 0x06)) < 0) {
-			ST_ERR("read  G sensor data register err!\n");
+			ST_ERR("read G-sensor data register err!\n");
 			return -1;
 		}
 
@@ -165,18 +168,9 @@ static int lsm6ds3_acc_write_calibration(struct lsm6ds3_acc *acc_obj, int dat[LS
 		ST_ERR("null ptr!!\n");
 		return -EINVAL;
 	} else {        
-		s16 cali[LSM6DS3_AXES_NUM];
-		cali[acc_obj->cvt.map[LSM6DS3_AXIS_X]] = acc_obj->cvt.sign[LSM6DS3_AXIS_X]*acc_obj->cali_sw[LSM6DS3_AXIS_X];
-		cali[acc_obj->cvt.map[LSM6DS3_AXIS_Y]] = acc_obj->cvt.sign[LSM6DS3_AXIS_Y]*acc_obj->cali_sw[LSM6DS3_AXIS_Y];
-		cali[acc_obj->cvt.map[LSM6DS3_AXIS_Z]] = acc_obj->cvt.sign[LSM6DS3_AXIS_Z]*acc_obj->cali_sw[LSM6DS3_AXIS_Z]; 
-
-		cali[LSM6DS3_AXIS_X] += dat[LSM6DS3_AXIS_X];
-		cali[LSM6DS3_AXIS_Y] += dat[LSM6DS3_AXIS_Y];
-		cali[LSM6DS3_AXIS_Z] += dat[LSM6DS3_AXIS_Z];
-
-		acc_obj->cali_sw[LSM6DS3_AXIS_X] += acc_obj->cvt.sign[LSM6DS3_AXIS_X]*cali[acc_obj->cvt.map[LSM6DS3_AXIS_X]];
-		acc_obj->cali_sw[LSM6DS3_AXIS_Y] += acc_obj->cvt.sign[LSM6DS3_AXIS_Y]*cali[acc_obj->cvt.map[LSM6DS3_AXIS_Y]];
-		acc_obj->cali_sw[LSM6DS3_AXIS_Z] += acc_obj->cvt.sign[LSM6DS3_AXIS_Z]*cali[acc_obj->cvt.map[LSM6DS3_AXIS_Z]];
+		acc_obj->cali_sw[LSM6DS3_AXIS_X] += acc_obj->cvt.sign[LSM6DS3_AXIS_X]*dat[acc_obj->cvt.map[LSM6DS3_AXIS_X]];
+		acc_obj->cali_sw[LSM6DS3_AXIS_Y] += acc_obj->cvt.sign[LSM6DS3_AXIS_Y]*dat[acc_obj->cvt.map[LSM6DS3_AXIS_Y]];
+		acc_obj->cali_sw[LSM6DS3_AXIS_Z] += acc_obj->cvt.sign[LSM6DS3_AXIS_Z]*dat[acc_obj->cvt.map[LSM6DS3_AXIS_Z]];
 	} 
 
 	return res;
@@ -221,6 +215,46 @@ static int lsm6ds3_acc_set_odr(struct lsm6ds3_acc *acc_obj, u8 odr)
 	return LSM6DS3_SUCCESS;    
 }
 
+static void lsm6ds3_acc_discard_sample(struct lsm6ds3_acc *acc_obj, bool change_odr)
+{
+	int sample_time = 0, discard_num = 0;
+		
+	switch (acc_obj->odr) {
+		case LSM6DS3_REG_CTRL1_XL_ODR_26HZ:
+			sample_time = 38;
+			discard_num = 1;
+			break;
+		case LSM6DS3_REG_CTRL1_XL_ODR_52HZ:
+			sample_time = 20;
+			discard_num = 1;
+			break;
+		case LSM6DS3_REG_CTRL1_XL_ODR_104HZ:
+			sample_time = 10;
+			discard_num = 2;
+			break;
+		case LSM6DS3_REG_CTRL1_XL_ODR_208HZ:
+			sample_time = 5;
+			discard_num = 2;
+			break;
+		case LSM6DS3_REG_CTRL1_XL_ODR_416HZ:
+			sample_time = 3;
+			discard_num = 2;
+			break;
+		default:
+			goto exit;
+	}
+	
+	if (change_odr)
+		discard_num += 0;
+	
+	ST_LOG("%s sample_time:%d, discard_num:%d!\n",__FUNCTION__, sample_time, discard_num);
+	
+	mdelay(discard_num*sample_time);
+	
+exit:
+	ST_LOG("%s OK!\n",__FUNCTION__);
+}
+
 int lsm6ds3_acc_set_power_mode(struct lsm6ds3_acc *acc_obj, bool state)
 { 
 	int res = 0;
@@ -229,12 +263,16 @@ int lsm6ds3_acc_set_power_mode(struct lsm6ds3_acc *acc_obj, bool state)
 		ST_LOG("Sensor power status is newest!\n");
 		return LSM6DS3_SUCCESS;
 	}
+	ST_LOG("change power mode: state: %d\n", state);
 
 	if (state == true) {
 		if (acc_obj->odr == 0) {
 			acc_obj->odr = LSM6DS3_REG_CTRL1_XL_ODR_104HZ;
 		}
 		res = lsm6ds3_acc_set_odr(acc_obj, acc_obj->odr);
+		lsm6ds3_acc_discard_sample(acc_obj, 0);
+		print_data_flag = 1;
+		print_data_num = 0;
 	} else if (state == false) {
 		res = lsm6ds3_acc_set_odr(acc_obj, LSM6DS3_REG_CTRL1_XL_ODR_0HZ);
 	} else {
@@ -338,6 +376,14 @@ static int lsm6ds3_acc_read_data(struct lsm6ds3_acc *acc_obj, u8 *data, int bufs
 		acc[acc_obj->cvt.map[LSM6DS3_AXIS_Y]] = acc_obj->cvt.sign[LSM6DS3_AXIS_Y]*acc_obj->data[LSM6DS3_AXIS_Y];
 		acc[acc_obj->cvt.map[LSM6DS3_AXIS_Z]] = acc_obj->cvt.sign[LSM6DS3_AXIS_Z]*acc_obj->data[LSM6DS3_AXIS_Z];
 
+		if (print_data_flag == 1) {
+			ST_LOG("XL data: %d %d %d\n", acc[LSM6DS3_AXIS_X], acc[LSM6DS3_AXIS_Y], acc[LSM6DS3_AXIS_Z]);
+			print_data_num++;
+			if (print_data_num >= 10) {
+				print_data_flag = 0;
+				print_data_num = 0;
+			}
+		}
 		sprintf(data, "%04x %04x %04x", acc[LSM6DS3_AXIS_X], acc[LSM6DS3_AXIS_Y], acc[LSM6DS3_AXIS_Z]);
 		if (atomic_read(&acc_obj->trace) & ADX_TRC_IOCTL) {
 			ST_LOG("gsensor data: %s!\n", data);
@@ -799,7 +845,10 @@ static int lsm6ds3_acc_set_delay_intf(u64 ns)
 	if (res != LSM6DS3_SUCCESS) {
 		ST_ERR("Set delay parameter error!\n");
 	}
+	lsm6ds3_acc_discard_sample(acc_obj, 1);
 	
+	print_data_flag = 1;
+	print_data_num = 0;
 #ifdef CONFIG_LSM6DS3_LOWPASS
 	if (ms >= 50) {
 		atomic_set(&acc_obj->filter, 0);

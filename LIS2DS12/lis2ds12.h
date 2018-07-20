@@ -3,8 +3,8 @@
  *
  * File Name: 	lis2ds12.h
  * Authors: 	Ian Yang, William Zeng
- * Version: 	V3.0.4
- * Date: 		02/08/2018
+ * Version: 	V3.0.5
+ * Date: 	    07/20/2018
  * Description: LIS2DS12 driver source file
  *
  *********************************************************************************************************
@@ -28,6 +28,7 @@
  * 3.0.2   | 07/03/2017	   | add Kconfig
  * 3.0.3   | 07/05/2017	   | fixed ATA test bug
  * 3.0.4   | 02/08/2018	   | modified driver to be compatible with Android O
+ * 3.0.5   | 07/20/2018	   | optimized calibration and interrupt configuration functions 
  *
  ****************************************************************************************************/
 
@@ -46,6 +47,7 @@
 #include <linux/interrupt.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
+#include <linux/of.h>
 
 #define DEBUG 1
 

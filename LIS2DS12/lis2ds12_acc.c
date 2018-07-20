@@ -70,7 +70,7 @@ static int lis2ds12_acc_read_rawdata(struct lis2ds12_acc *acc_obj, s16 data[LIS2
         ret = -EINVAL;
     } else {
         if ((lis2ds12_i2c_read_block(client, LIS2DS12_REG_OUT_X_L, buf, LIS2DS12_DATA_LEN)) < 0) {
-	    ST_ERR("read  G sensor data register err!\n");
+	    ST_ERR("read G-sensor data register err!\n");
             return -1;
         }
 	
@@ -163,19 +163,9 @@ static int lis2ds12_acc_write_calibration(struct lis2ds12_acc *acc_obj, int dat[
         ST_ERR("null ptr!!\n");
         return -EINVAL;
     } else {        
-        s16 cali[LIS2DS12_AXES_NUM];
-
-        cali[acc_obj->cvt.map[LIS2DS12_AXIS_X]] = acc_obj->cvt.sign[LIS2DS12_AXIS_X]*acc_obj->cali_sw[LIS2DS12_AXIS_X];
-        cali[acc_obj->cvt.map[LIS2DS12_AXIS_Y]] = acc_obj->cvt.sign[LIS2DS12_AXIS_Y]*acc_obj->cali_sw[LIS2DS12_AXIS_Y];
-        cali[acc_obj->cvt.map[LIS2DS12_AXIS_Z]] = acc_obj->cvt.sign[LIS2DS12_AXIS_Z]*acc_obj->cali_sw[LIS2DS12_AXIS_Z]; 
-		
-        cali[LIS2DS12_AXIS_X] += dat[LIS2DS12_AXIS_X];
-        cali[LIS2DS12_AXIS_Y] += dat[LIS2DS12_AXIS_Y];
-        cali[LIS2DS12_AXIS_Z] += dat[LIS2DS12_AXIS_Z];
-
-        acc_obj->cali_sw[LIS2DS12_AXIS_X] = acc_obj->cvt.sign[LIS2DS12_AXIS_X]*cali[acc_obj->cvt.map[LIS2DS12_AXIS_X]];
-        acc_obj->cali_sw[LIS2DS12_AXIS_Y] = acc_obj->cvt.sign[LIS2DS12_AXIS_Y]*cali[acc_obj->cvt.map[LIS2DS12_AXIS_Y]];
-        acc_obj->cali_sw[LIS2DS12_AXIS_Z] = acc_obj->cvt.sign[LIS2DS12_AXIS_Z]*cali[acc_obj->cvt.map[LIS2DS12_AXIS_Z]];
+        acc_obj->cali_sw[LIS2DS12_AXIS_X] = acc_obj->cvt.sign[LIS2DS12_AXIS_X]*dat[acc_obj->cvt.map[LIS2DS12_AXIS_X]];
+        acc_obj->cali_sw[LIS2DS12_AXIS_Y] = acc_obj->cvt.sign[LIS2DS12_AXIS_Y]*dat[acc_obj->cvt.map[LIS2DS12_AXIS_Y]];
+        acc_obj->cali_sw[LIS2DS12_AXIS_Z] = acc_obj->cvt.sign[LIS2DS12_AXIS_Z]*dat[acc_obj->cvt.map[LIS2DS12_AXIS_Z]];
     } 
     
     return 0;
@@ -1076,13 +1066,13 @@ static int lis2ds12_acc_local_init(void)
         ST_ERR("get lis2ds12 dts info failed\n");
     }
 #else
-	res = get_accel_dts_func(client->dev.of_node, &lis2ds12_acc_cust_hw);
-	if (res < 0) {
-		ST_ERR("get dts info fail\n");
-		return -EFAULT;
-	}
+    ret = get_accel_dts_func(client->dev.of_node, &lis2ds12_acc_cust_hw);
+    if (ret < 0) {
+	ST_ERR("get dts info fail\n");
+	return -EFAULT;
+    }
 
-	acc_obj->lis2ds12_acc_hw = &lis2ds12_acc_cust_hw;
+    acc_obj->lis2ds12_acc_hw = &lis2ds12_acc_cust_hw;
 #endif
     if ((ret = hwmsen_get_convert(acc_obj->lis2ds12_acc_hw->direction, &acc_obj->cvt))) {
         ST_ERR("invalid direction: %d\n", acc_obj->lis2ds12_acc_hw->direction);

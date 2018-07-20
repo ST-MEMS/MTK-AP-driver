@@ -480,7 +480,7 @@ static int lis2ds12_step_counter_enable_nodata_intf(int en)
     return LIS2DS12_SUCCESS;
 }
 
-#if (CONFIG_SIGNIFICANT_MOTION)
+#if (CONFIG_SIGNIFICANT_MOTION || CONFIG_STEP_COUNTER)
 static int lis2ds12_enable_sigificant_intf(int en)
 {
     struct lis2ds12_data *obj = obj_i2c_data;
@@ -550,7 +550,7 @@ static int lis2ds12_step_c_set_delay_intf(u64 ns)
     return LIS2DS12_SUCCESS;
 }
 
-#if (CONFIG_SIGNIFICANT_MOTION)
+#if (CONFIG_SIGNIFICANT_MOTION || CONFIG_STEP_COUNTER)
 static int lis2ds12_get_data_significant_intf(uint32_t *value, int *status)
 {
 #if (!CONFIG_HARDWARE_INTERRUPT)
@@ -623,9 +623,7 @@ static int lis2ds12_pedo_local_init(void)
     ctl.open_report_data       = lis2ds12_step_counter_open_report_data_intf;
     ctl.enable_nodata 	       = lis2ds12_step_counter_enable_nodata_intf;
     ctl.enable_step_detect     = lis2ds12_enable_step_dectect_intf;
-#if (CONFIG_SIGNIFICANT_MOTION)
     ctl.enable_significant     = lis2ds12_enable_sigificant_intf;
-#endif
     ctl.step_c_set_delay       = lis2ds12_step_c_set_delay_intf;
     ctl.step_d_set_delay       = lis2ds12_step_d_set_delay_intf;
     ctl.is_report_input_direct = false;
@@ -640,9 +638,7 @@ static int lis2ds12_pedo_local_init(void)
     data.get_data             = lis2ds12_get_data_step_c_intf;
     data.vender_div           = 1;
     data.get_data_step_d      = lis2ds12_get_data_step_d_intf;
-#if (CONFIG_SIGNIFICANT_MOTION)
     data.get_data_significant = lis2ds12_get_data_significant_intf;
-#endif
 	
     ret = step_c_register_data_path(&data);
     if (ret) {

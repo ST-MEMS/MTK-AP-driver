@@ -124,9 +124,6 @@ int lis2ds12_step_configure(struct lis2ds12_data *obj)
 	return LIS2DS12_ERR_I2C;
     }
     
-    lis2ds12_i2c_read_block(client, LIS2DS12_REG_CTRL2, &databuf, 1);
-    ST_ERR("LIS2DS12_REG_CTRL2:0x%02x\n", databuf);
-
     //enable embedded registers
     ret = lis2ds12_i2c_write_with_mask(client, LIS2DS12_REG_CTRL2, LIS2DS12_REG_CTRL2_MASK_FUNC_CFG_EN, LIS2DS12_EN); 
     if (ret < 0) {
@@ -148,9 +145,6 @@ int lis2ds12_step_configure(struct lis2ds12_data *obj)
 	ST_ERR("write LIS2DS12_REG_EMBED_CTRL2 register disable err!\n");
 	return LIS2DS12_ERR_I2C;
     }
-
-    lis2ds12_i2c_read_block(client, LIS2DS12_REG_CTRL2, &databuf, 1);
-    ST_ERR("LIS2DS12_REG_CTRL2:0x%02x\n", databuf);
 
 #if (CONFIG_PEDOMETER_ALWAYS_ON) 
     //set fullscale as 4g
@@ -250,11 +244,13 @@ int lis2ds12_set_interrupt(void)
     struct lis2ds12_data *obj = obj_i2c_data;
     struct i2c_client *client = obj->client;
     struct device_node *node = NULL;
-    //struct pinctrl *pinctrl;
-    //struct pinctrl_state *pins_default;
-    //struct pinctrl_state *pins_cfg;
     u32 ints[2] = {0, 0};
     int ret = -1;
+    const struct of_device_id gyro_of_match[] = {
+	{ .name = "GYRO", },
+	{ .compatible = "mediatek,gyroscope", },
+	{},
+    };
 	
     ST_FUN();
 
@@ -272,36 +268,16 @@ int lis2ds12_set_interrupt(void)
 	return LIS2DS12_ERR_I2C;
     } 
 
-#if 0
-    /* gpio setting */
-    pinctrl = devm_pinctrl_get(&stepPltFmDev->dev);
-    if (IS_ERR(pinctrl)) {
-	ret = PTR_ERR(pinctrl);
-	ST_ERR("Cannot find step pinctrl!\n");
-	return ret;
-    }
-/*
-    pins_default = pinctrl_lookup_state(pinctrl, "pin_default");
-    if (IS_ERR(pins_default)) {
-	ret = PTR_ERR(pins_default);
-	ST_ERR("Cannot find step pinctrl default!\n");
-    }
-*/
-    pins_cfg = pinctrl_lookup_state(pinctrl, "pin_cfg");
-    if (IS_ERR(pins_cfg)) {
-	ret = PTR_ERR(pins_cfg);
-	ST_ERR("Cannot find step pinctrl pin_cfg!\n");
-	return ret;
-    }
-	
-    pinctrl_select_state(pinctrl, pins_cfg);
-#endif
-    node = of_find_compatible_node(NULL, NULL, "mediatek,gyroscope");
+    node = of_find_matching_node(node, gyro_of_match);
     if (node) {
 	ST_LOG("irq node is ok!");
-	of_property_read_u32_array(node, "debounce", ints, ARRAY_SIZE(ints));
-	gpio_set_debounce(ints[0], ints[1]);
-	ST_LOG("ints[0] = %d, ints[1] = %d!!\n", ints[0], ints[1]);
+	ret = of_property_read_u32_array(node, "debounce", ints, ARRAY_SIZE(ints));
+	if (ret == 0) {
+		ST_LOG("ints[0] = %d, ints[1] = %d!!\n", ints[0], ints[1]);
+		gpio_set_debounce(ints[0], ints[1]);
+	} else {
+		ST_LOG("debounce time not found\n");
+	}
 
 	obj->irq = irq_of_parse_and_map(node, 0);
 	ST_LOG("step_irq = %d\n", obj->irq);
@@ -483,87 +459,6 @@ int lis2ds12_i2c_delete_attr(struct device_driver *driver)
     return 0;
 }
 
-/*----------------------------------------------------------------------------*/
-#if 0
-static int lis2ds12_suspend(struct i2c_client *client, pm_message_t msg) 
-{
-    struct lis2ds12_data *obj = i2c_get_clientdata(client);
-    struct lis2ds12_acc *acc_obj = &obj->lis2ds12_acc_data;
-    int ret = 0;
-	
-    ST_FUN();
-	
-    if ((msg.event == PM_EVENT_SUSPEND) && (obj->acc_enabled == 1)) {   
-        mutex_lock(&lis2ds12_op_mutex);
-        if (obj == NULL) {    
-            ST_ERR("null pointer!!\n");
-            ret = -EINVAL;
-	    goto exit_failed;
-        }
-
-        ret = lis2ds12_acc_set_power_mode(acc_obj, false);		
-        if (ret) {
-            ST_ERR("write power control fail!!\n");
-            goto exit_failed;        
-        }
-        
-        atomic_set(&acc_obj->suspend, 1);
-	mutex_unlock(&lis2ds12_op_mutex);
-    }
-
-#if (CONFIG_HARDWARE_INTERRUPT)
-    if (atomic_read(&obj->irq_enabled)) 
-	disable_irq_nosync(obj->irq);
-#endif
-	
-    ST_LOG("lis2ds12 i2c suspended\n");
-    return ret;
-	
-exit_failed:
-    mutex_unlock(&lis2ds12_op_mutex);
-    return ret; 
-}
-
-static int lis2ds12_resume(struct i2c_client *client)
-{
-    struct lis2ds12_data *obj = i2c_get_clientdata(client);
-    struct lis2ds12_acc *acc_obj = &obj->lis2ds12_acc_data;
-    int ret;
-
-    ST_FUN();
-
-    if (obj->acc_enabled == 1) {
-	mutex_lock(&lis2ds12_op_mutex);
-	if (obj == NULL) {
-	    ST_ERR("null pointer!!\n");
-	    ret = -EINVAL;
-	    goto exit_failed;
-	}
-
-    	ret = lis2ds12_acc_set_power_mode(acc_obj, true);
-    	if (ret) {
-	    ST_ERR("initialize client fail!!\n");
-	    goto exit_failed;        
-   	}
-
-     	atomic_set(&acc_obj->suspend, 0);
-	mutex_unlock(&lis2ds12_op_mutex);
-    }
-
-#if (CONFIG_HARDWARE_INTERRUPT)
-    if (atomic_read(&obj->irq_enabled)) 
-	enable_irq(obj->irq);
-#endif	
-	
-    ST_LOG("lis2ds12 i2c resumed\n");
-    return 0;
-
-exit_failed:
-    mutex_unlock(&lis2ds12_op_mutex);
-    return ret; 
-}
-#endif
-
 static int lis2ds12_i2c_detect(struct i2c_client *client, struct i2c_board_info *info) 
 {    
     strcpy(info->type, LIS2DS12_DEV_NAME);
@@ -576,6 +471,7 @@ static int lis2ds12_i2c_probe(struct i2c_client *client, const struct i2c_device
     int ret = 0;
 
     ST_FUN();
+    ST_ERR("client->addr: 0x%02x\n", client->addr);
 
     if (!(obj = kzalloc(sizeof(*obj), GFP_KERNEL))) {
 	ret = -ENOMEM;
@@ -595,7 +491,7 @@ static int lis2ds12_i2c_probe(struct i2c_client *client, const struct i2c_device
 
     ret = lis2ds12_check_device_id(obj);
     if (ret) {
-	ST_ERR("check device error!\n");
+	ST_ERR("check device id error!\n");
 	goto exit_check_device_failed;
     }
 
@@ -610,13 +506,20 @@ static int lis2ds12_i2c_probe(struct i2c_client *client, const struct i2c_device
 #endif
 
 #if (CONFIG_HARDWARE_INTERRUPT)
-    //platform_driver_register(&lis2ds12_step_driver);
     ret = lis2ds12_set_interrupt();
     if (ret) {
 	ST_ERR("create interrupt error!\n");
 	goto exit_set_interrupt_failed;
     }
 #endif	
+
+    acc_driver_add(&lis2ds12_acc_init_info);
+#if (CONFIG_STEP_COUNTER || CONFIG_STEP_DETECT || CONFIG_SIGNIFICANT_MOTION)
+    step_c_driver_add(&lis2ds12_pedo_init_info);
+#endif
+#if (CONFIG_TILT)
+    tilt_driver_add(&lis2ds12_tilt_init_info);
+#endif
 
     ST_LOG("lis2ds12_i2c_probe successfully\n");
     return 0;
@@ -657,10 +560,6 @@ static struct i2c_driver lis2ds12_i2c_driver = {
     .probe              = lis2ds12_i2c_probe,
     .remove             = lis2ds12_i2c_remove,
     .detect             = lis2ds12_i2c_detect,
-#if 0	
-    .suspend            = lis2ds12_suspend,
-    .resume             = lis2ds12_resume,
-#endif
     .id_table           = lis2ds12_i2c_id,
 };
 
@@ -673,15 +572,7 @@ static int __init lis2ds12_module_init(void)
         ST_ERR("add acc driver error\n");
         return -1;
     }
-	
-	acc_driver_add(&lis2ds12_acc_init_info);
-#if (CONFIG_STEP_COUNTER || CONFIG_STEP_DETECT || CONFIG_SIGNIFICANT_MOTION)
-    step_c_driver_add(&lis2ds12_pedo_init_info);
-#endif
-#if (CONFIG_TILT)
-    tilt_driver_add(&lis2ds12_tilt_init_info);
-#endif
-	
+		
     return LIS2DS12_SUCCESS;
 }
 

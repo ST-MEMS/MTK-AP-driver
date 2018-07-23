@@ -4,7 +4,7 @@
  * File Name: 	lis2ds12.h
  * Authors: 	Ian Yang, William Zeng
  * Version: 	V3.0.5
- * Date: 	    07/20/2018
+ * Date: 	07/20/2018
  * Description: LIS2DS12 driver source file
  *
  *********************************************************************************************************

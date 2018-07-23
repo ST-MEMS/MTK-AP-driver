@@ -22,7 +22,10 @@ static struct data_resolution lis2ds12_acc_data_resolution[] = {
 };
 
 static struct data_resolution lis2ds12_offset_resolution = {{15, 6}, 64};
-static struct GSENSOR_VECTOR3D gsensor_gain, gsensor_offset;
+static struct GSENSOR_VECTOR3D gsensor_gain;
+#ifdef MISC_DEVICE_FACTORY
+static struct GSENSOR_VECTOR3D gsensor_offset;
+#endif
 struct acc_hw lis2ds12_acc_cust_hw;
 
 /*For driver get cust info*/
@@ -825,6 +828,7 @@ static int lis2ds12_acc_get_data_intf(int *x ,int *y,int *z, int *status)
     return LIS2DS12_SUCCESS;
 }
 
+#ifdef MISC_DEVICE_FACTORY
 static int lis2ds12_acc_open(struct inode *inode, struct file *file)
 {
     file->private_data = obj_i2c_data;
@@ -1049,6 +1053,128 @@ static struct miscdevice lis2ds12_acc_device = {
     .fops = &lis2ds12_acc_fops,
 };
 
+
+#else
+static int lis2ds12_acc_factory_do_self_test(void)
+{
+    return 0;
+}
+
+static int lis2ds12_acc_factory_get_cali(int32_t data[3])
+{
+	struct lis2ds12_data *obj = obj_i2c_data;
+	struct lis2ds12_acc *acc_obj = &obj->lis2ds12_acc_data;	
+    int cali[3];
+    int err = -1;
+
+    err = lis2ds12_acc_read_calibration(acc_obj, cali);
+    if (err) {
+        ST_LOG("lis2ds12_acc_read_calibration failed\n");
+        return -1;
+    }
+        
+	data[0] = cali[LIS2DS12_AXIS_X];
+    data[1] = cali[LIS2DS12_AXIS_Y];
+    data[2] = cali[LIS2DS12_AXIS_Z];
+        
+	return 0;
+}
+
+static int lis2ds12_acc_factory_set_cali(int32_t data[3])
+{
+    int err = 0;
+	struct lis2ds12_data *obj = obj_i2c_data;
+	struct lis2ds12_acc *acc_obj = &obj->lis2ds12_acc_data; 
+    ST_FUN();
+
+    err = lis2ds12_acc_write_calibration(acc_obj, data); 
+    if (err) {
+        ST_LOG("lis2ds12_acc_write_calibration failed!\n");
+        return -1;
+    }
+		
+    return 0;
+}
+
+static int lis2ds12_acc_factory_enable_calibration(void)
+{
+    return 0;
+}
+
+static int lis2ds12_acc_factory_clear_cali(void)
+{
+    int err = 0;
+	struct lis2ds12_data *obj = obj_i2c_data;
+	struct lis2ds12_acc *acc_obj = &obj->lis2ds12_acc_data;	
+	
+    err = lis2ds12_acc_reset_calibration(acc_obj);
+    if (err) {
+        ST_LOG("lis2ds12_acc_reset_calibration failed!\n");
+        return -1;
+    }
+		
+    return 0;
+}
+
+static int lis2ds12_acc_factory_get_raw_data(int32_t data[3])
+{
+	struct lis2ds12_data *obj = obj_i2c_data;
+	struct lis2ds12_acc *acc_obj = &obj->lis2ds12_acc_data;
+	s16 databuff[3];
+
+	lis2ds12_acc_read_rawdata(acc_obj, databuff);
+	data[0] = (s16)databuff[0];
+	data[1] = (s16)databuff[1];
+	data[2] = (s16)databuff[2];
+        
+	ST_LOG("lis2ds12_factory_get_raw_data done!\n");
+		
+    return 0;
+}
+
+static int lis2ds12_acc_factory_get_data(int32_t data[3], int *status)
+{
+    return lis2ds12_acc_get_data_intf(&data[0], &data[1], &data[2], status);
+}
+
+static int lis2ds12_acc_factory_enable_sensor(bool enable, int64_t sample_periods_ms)
+{
+    int err;
+
+    err = lis2ds12_acc_enable_nodata_intf(enable == true ? 1 : 0);
+    if (err) {
+        ST_ERR("lis2ds12_acc_enable_nodata_intf failed!\n");
+        return -1;
+    }
+        
+	err = lis2ds12_acc_set_delay_intf(sample_periods_ms * 1000000);
+    if (err) {
+        ST_ERR("lis2ds12_acc_set_delay_intf failed!\n");
+        return -1;
+    }
+        
+	return 0;
+}
+
+/*----------------------------------------------------------------------------*/
+static struct accel_factory_fops lis2ds12_acc_factory_fops = {
+    .enable_sensor      = lis2ds12_acc_factory_enable_sensor,
+    .get_data           = lis2ds12_acc_factory_get_data,
+    .get_raw_data       = lis2ds12_acc_factory_get_raw_data,
+    .enable_calibration = lis2ds12_acc_factory_enable_calibration,
+    .clear_cali         = lis2ds12_acc_factory_clear_cali,
+    .set_cali           = lis2ds12_acc_factory_set_cali,
+    .get_cali           = lis2ds12_acc_factory_get_cali,
+    .do_self_test       = lis2ds12_acc_factory_do_self_test,
+};
+
+static struct accel_factory_public lis2ds12_acc_factory_device = {
+    .gain        = 1,
+    .sensitivity = 1,
+    .fops        = &lis2ds12_acc_factory_fops,
+};
+#endif
+
 static int lis2ds12_acc_local_init(void)
 {
     struct lis2ds12_data *obj = obj_i2c_data;
@@ -1106,11 +1232,19 @@ static int lis2ds12_acc_local_init(void)
         goto exit_init_failed;
 
     sprintf(acc_obj->name, "%s_ACC", obj->name);
-	
+
+#ifdef  MISC_DEVICE_FACTORY	
     if ((ret = misc_register(&lis2ds12_acc_device))) {
         ST_ERR("lis2ds12_acc_device register failed\n");
         goto exit_misc_device_register_failed;
     }
+#else
+	ret = accel_factory_device_register(&lis2ds12_acc_factory_device);
+    if (ret) {
+        ST_ERR("lis2ds12_acc_factory_device register failed!\n");
+        goto exit_misc_device_register_failed;
+    }		
+#endif
 
     if ((ret = lis2ds12_acc_create_attr(&(lis2ds12_acc_init_info.platform_diver_addr->driver)))) {
         ST_ERR("create attribute err = %d\n", ret);
@@ -1147,7 +1281,11 @@ exit_register_data_path_failed:
 exit_register_control_path_failed:
 	lis2ds12_acc_delete_attr(&(lis2ds12_acc_init_info.platform_diver_addr->driver));
 exit_create_attr_failed:
+#ifdef MISC_DEVICE_FACTORY
     misc_deregister(&lis2ds12_acc_device);
+#else
+	accel_factory_device_deregister(&lis2ds12_acc_factory_device);
+#endif
 exit_misc_device_register_failed:
 exit_init_failed:
 exit_get_direction_failed:
@@ -1157,8 +1295,12 @@ exit_get_direction_failed:
 
 static int lis2ds12_acc_local_remove(void)
 {
-    ST_FUN(); 
+    ST_FUN();
+#ifdef MISC_DEVICE_FACTORY
     misc_deregister(&lis2ds12_acc_device);
+#else
+	accel_factory_device_deregister(&lis2ds12_acc_factory_device);
+#endif
     lis2ds12_acc_delete_attr(&(lis2ds12_acc_init_info.platform_diver_addr->driver));
     
     return LIS2DS12_SUCCESS;

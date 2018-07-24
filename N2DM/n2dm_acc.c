@@ -22,7 +22,10 @@ static struct data_resolution n2dm_data_resolution[] = {
 };
 /*----------------------------------------------------------------------------*/
 static struct data_resolution n2dm_offset_resolution = {{15, 6}, 64};
-static struct GSENSOR_VECTOR3D gsensor_gain, gsensor_offset;
+static struct GSENSOR_VECTOR3D gsensor_gain;
+#ifdef MISC_DEVICE_FACTORY
+static struct GSENSOR_VECTOR3D gsensor_offset;
+#endif
 struct acc_hw n2dm_cust_hw;
 int n2dm_acc_init_flag = -1; // 0<==>OK -1 <==> fail
 /*----------------------------------------------------------------------------*/
@@ -52,7 +55,7 @@ static int n2dm_acc_set_resolution(struct n2dm_acc *acc_obj)
     }
 
     /*the data_reso is combined by 3 bits: {FULL_RES, DATA_RANGE}*/
-    reso = (dat & 0x30)<<4;
+    reso = (dat & 0x30) >> 4;
     if(reso >= 0x3)
         reso = 0x2;
     
@@ -203,6 +206,7 @@ static int n2dm_acc_write_calibration(struct n2dm_acc *acc_obj, int dat[N2DM_AXE
     int err = 0;
 
     ST_FUN();
+	
     if(!acc_obj || !dat)
     {
         ST_ERR("null ptr!!\n");
@@ -210,15 +214,6 @@ static int n2dm_acc_write_calibration(struct n2dm_acc *acc_obj, int dat[N2DM_AXE
     }
     else
     {        
-        s16 cali[N2DM_AXES_NUM];
-        cali[acc_obj->cvt.map[N2DM_AXIS_X]] = acc_obj->cvt.sign[N2DM_AXIS_X]*acc_obj->cali_sw[N2DM_AXIS_X];
-        cali[acc_obj->cvt.map[N2DM_AXIS_Y]] = acc_obj->cvt.sign[N2DM_AXIS_Y]*acc_obj->cali_sw[N2DM_AXIS_Y];
-        cali[acc_obj->cvt.map[N2DM_AXIS_Z]] = acc_obj->cvt.sign[N2DM_AXIS_Z]*acc_obj->cali_sw[N2DM_AXIS_Z]; 
-		
-        cali[N2DM_AXIS_X] += dat[N2DM_AXIS_X];
-        cali[N2DM_AXIS_Y] += dat[N2DM_AXIS_Y];
-        cali[N2DM_AXIS_Z] += dat[N2DM_AXIS_Z];
-
         acc_obj->cali_sw[N2DM_AXIS_X] += acc_obj->cvt.sign[N2DM_AXIS_X]*dat[acc_obj->cvt.map[N2DM_AXIS_X]];
         acc_obj->cali_sw[N2DM_AXIS_Y] += acc_obj->cvt.sign[N2DM_AXIS_Y]*dat[acc_obj->cvt.map[N2DM_AXIS_Y]];
         acc_obj->cali_sw[N2DM_AXIS_Z] += acc_obj->cvt.sign[N2DM_AXIS_Z]*dat[acc_obj->cvt.map[N2DM_AXIS_Z]];
@@ -411,9 +406,8 @@ static int n2dm_acc_read_data(struct n2dm_acc *acc_obj, u8 *buf, int bufsize)
 {
     struct n2dm_data *obj = container_of(acc_obj, struct n2dm_data, n2dm_acc_data);
 	struct i2c_client *client = obj->client;
-
     u8 databuf[20];
-    int acc[N2DM_AXES_NUM];
+    int acc[N2DM_AXES_NUM] = {0};
     int res = 0;
     memset(databuf, 0, sizeof(u8)*10);
 
@@ -450,6 +444,11 @@ static int n2dm_acc_read_data(struct n2dm_acc *acc_obj, u8 *buf, int bufsize)
     }
     else
     {
+		//Out put the mg
+        acc_obj->data[N2DM_AXIS_X] = acc_obj->data[N2DM_AXIS_X] * GRAVITY_EARTH_1000 / acc_obj->reso->sensitivity;
+        acc_obj->data[N2DM_AXIS_Y] = acc_obj->data[N2DM_AXIS_Y] * GRAVITY_EARTH_1000 / acc_obj->reso->sensitivity;
+        acc_obj->data[N2DM_AXIS_Z] = acc_obj->data[N2DM_AXIS_Z] * GRAVITY_EARTH_1000 / acc_obj->reso->sensitivity;
+
         acc_obj->data[N2DM_AXIS_X] += acc_obj->cali_sw[N2DM_AXIS_X];
         acc_obj->data[N2DM_AXIS_Y] += acc_obj->cali_sw[N2DM_AXIS_Y];
         acc_obj->data[N2DM_AXIS_Z] += acc_obj->cali_sw[N2DM_AXIS_Z];
@@ -458,13 +457,6 @@ static int n2dm_acc_read_data(struct n2dm_acc *acc_obj, u8 *buf, int bufsize)
         acc[acc_obj->cvt.map[N2DM_AXIS_X]] = acc_obj->cvt.sign[N2DM_AXIS_X]*acc_obj->data[N2DM_AXIS_X];
         acc[acc_obj->cvt.map[N2DM_AXIS_Y]] = acc_obj->cvt.sign[N2DM_AXIS_Y]*acc_obj->data[N2DM_AXIS_Y];
         acc[acc_obj->cvt.map[N2DM_AXIS_Z]] = acc_obj->cvt.sign[N2DM_AXIS_Z]*acc_obj->data[N2DM_AXIS_Z];
-
-        //ST_LOG("Mapped gsensor data: %d, %d, %d!\n", acc[N2DM_AXIS_X], acc[N2DM_AXIS_Y], acc[N2DM_AXIS_Z]);
-
-        //Out put the mg
-        acc[N2DM_AXIS_X] = acc[N2DM_AXIS_X] * GRAVITY_EARTH_1000 / acc_obj->reso->sensitivity;
-        acc[N2DM_AXIS_Y] = acc[N2DM_AXIS_Y] * GRAVITY_EARTH_1000 / acc_obj->reso->sensitivity;
-        acc[N2DM_AXIS_Z] = acc[N2DM_AXIS_Z] * GRAVITY_EARTH_1000 / acc_obj->reso->sensitivity;        
 	
         sprintf(buf, "%04x %04x %04x", acc[N2DM_AXIS_X], acc[N2DM_AXIS_Y], acc[N2DM_AXIS_Z]);
         if(atomic_read(&acc_obj->trace) & ADX_TRC_IOCTL)//atomic_read(&obj->trace) & ADX_TRC_IOCTL
@@ -938,7 +930,7 @@ static int n2dm_acc_enable_nodata_intf(int en)
 {
     struct n2dm_data *obj = obj_i2c_data;
     struct n2dm_acc *acc_obj = &obj->n2dm_acc_data;
-    int res =0;
+    int res = 0;
     bool power = false;
     
     if (1 == en)
@@ -946,7 +938,7 @@ static int n2dm_acc_enable_nodata_intf(int en)
     else if (0 == en)
         power = false;
  
-	acc_obj->enabled = en;
+    acc_obj->enabled = en;
 	
     res = n2dm_acc_set_power_mode(acc_obj, power);
     if(res != N2DM_SUCCESS)
@@ -994,12 +986,14 @@ static int n2dm_acc_set_delay_intf(u64 ns)
         atomic_set(&acc_obj->filter, 0);
     }
     else
-    {                    
+    {
+#ifdef CONFIG_N2DM_LOWPASS
         acc_obj->fir.num = 0;
         acc_obj->fir.idx = 0;
         acc_obj->fir.sum[N2DM_AXIS_X] = 0;
         acc_obj->fir.sum[N2DM_AXIS_Y] = 0;
         acc_obj->fir.sum[N2DM_AXIS_Z] = 0;
+#endif
         atomic_set(&acc_obj->filter, 1);
     }
     
@@ -1031,6 +1025,7 @@ static int n2dm_acc_get_data_intf(int* x ,int* y,int* z, int* status)
     return 0;
 }
 
+#ifdef MISC_DEVICE_FACTORY
 static int n2dm_acc_open(struct inode *inode, struct file *file)
 {
     file->private_data = obj_i2c_data;
@@ -1312,6 +1307,126 @@ static struct miscdevice n2dm_acc_device = {
     .fops = &n2dm_acc_fops,
 };
 
+#else
+static int n2dm_acc_factory_do_self_test(void)
+{
+    return 0;
+}
+
+static int n2dm_acc_factory_get_cali(int32_t data[3])
+{
+	struct n2dm_data *obj = obj_i2c_data;
+	struct n2dm_acc *acc_obj = &obj->n2dm_acc_data; 
+    int cali[3];
+    int err = -1;
+
+    err = n2dm_acc_read_calibration(acc_obj, cali);
+    if (err) {
+        ST_LOG("n2dm_acc_read_calibration failed\n");
+        return -1;
+    }
+        
+	data[0] = cali[N2DM_AXIS_X];
+    data[1] = cali[N2DM_AXIS_Y];
+    data[2] = cali[N2DM_AXIS_Z];
+        
+	return 0;
+}
+
+static int n2dm_acc_factory_set_cali(int32_t data[3])
+{
+    int err = 0;
+	struct n2dm_data *obj = obj_i2c_data;
+	struct n2dm_acc *acc_obj = &obj->n2dm_acc_data; 
+    ST_FUN();
+
+    err = n2dm_acc_write_calibration(acc_obj, data); 
+    if (err) {
+        ST_LOG("n2dm_acc_write_calibration failed!\n");
+        return -1;
+    }
+		
+    return 0;
+}
+
+static int n2dm_acc_factory_enable_calibration(void)
+{
+    return 0;
+}
+
+static int n2dm_acc_factory_clear_cali(void)
+{
+    int err = 0;
+	struct n2dm_data *obj = obj_i2c_data;
+	struct n2dm_acc *acc_obj = &obj->n2dm_acc_data;	
+	
+    err = n2dm_acc_reset_calibration(acc_obj);
+    if (err) {
+        ST_LOG("n2dm_acc_reset_calibration failed!\n");
+        return -1;
+    }
+		
+    return 0;
+}
+
+static int n2dm_acc_factory_get_raw_data(int32_t data[3])
+{
+	struct n2dm_data *obj = obj_i2c_data;
+	struct n2dm_acc *acc_obj = &obj->n2dm_acc_data;
+	s16 databuff[3];
+
+	n2dm_acc_read_rawdata(acc_obj, databuff);
+	data[0] = (s16)databuff[0];
+	data[1] = (s16)databuff[1];
+	data[2] = (s16)databuff[2];
+        
+	ST_LOG("n2dm_factory_get_raw_data done!\n");
+		
+    return 0;
+}
+
+static int n2dm_acc_factory_get_data(int32_t data[3], int *status)
+{
+    return n2dm_acc_get_data_intf(&data[0], &data[1], &data[2], status);
+}
+
+static int n2dm_acc_factory_enable_sensor(bool enable, int64_t sample_periods_ms)
+{
+    int err;
+
+    err = n2dm_acc_enable_nodata_intf(enable == true ? 1 : 0);
+    if (err) {
+        ST_ERR("n2dm_acc_enable_nodata_intf failed!\n");
+        return -1;
+    }
+        
+	err = n2dm_acc_set_delay_intf(sample_periods_ms * 1000000);
+    if (err) {
+        ST_ERR("n2dm_acc_set_delay_intf failed!\n");
+        return -1;
+    }
+        
+	return 0;
+}
+
+/*----------------------------------------------------------------------------*/
+static struct accel_factory_fops n2dm_acc_factory_fops = {
+    .enable_sensor      = n2dm_acc_factory_enable_sensor,
+    .get_data           = n2dm_acc_factory_get_data,
+    .get_raw_data       = n2dm_acc_factory_get_raw_data,
+    .enable_calibration = n2dm_acc_factory_enable_calibration,
+    .clear_cali         = n2dm_acc_factory_clear_cali,
+    .set_cali           = n2dm_acc_factory_set_cali,
+    .get_cali           = n2dm_acc_factory_get_cali,
+    .do_self_test       = n2dm_acc_factory_do_self_test,
+};
+
+static struct accel_factory_public n2dm_acc_factory_device = {
+    .gain        = 1,
+    .sensitivity = 1,
+    .fops        = &n2dm_acc_factory_fops,
+};
+#endif
 
 /*----------------------------------------------------------------------------*/
 static int n2dm_acc_local_init(void)
@@ -1374,12 +1489,20 @@ static int n2dm_acc_local_init(void)
     }
     if(err != 0)
         goto exit_init_failed;
-
+	
+#ifdef  MISC_DEVICE_FACTORY
     if((err = misc_register(&n2dm_acc_device)))
     {
         ST_ERR("n2dm_acc_device register failed\n");
         goto exit_misc_device_register_failed;
     }
+#else
+	err = accel_factory_device_register(&n2dm_acc_factory_device);
+    if (err) {
+        ST_ERR("n2dm_acc_factory_device register failed!\n");
+        goto exit_misc_device_register_failed;
+    }	
+#endif
 
     if((err = n2dm_acc_create_attr(&(n2dm_acc_init_info.platform_diver_addr->driver))))
     {
@@ -1416,7 +1539,11 @@ static int n2dm_acc_local_init(void)
     return 0;
 
 exit_create_attr_failed:
+#ifdef MISC_DEVICE_FACTORY
     misc_deregister(&n2dm_acc_device);
+#else
+	accel_factory_device_deregister(&n2dm_acc_factory_device);
+#endif
 exit_misc_device_register_failed:
 exit_init_failed:
 exit_kfree:
@@ -1430,8 +1557,12 @@ exit:
 /*----------------------------------------------------------------------------*/
 static int n2dm_acc_local_remove(void)
 {
-    ST_FUN(); 
+    ST_FUN();
+#ifdef MISC_DEVICE_FACTORY
     misc_deregister(&n2dm_acc_device);
+#else
+	accel_factory_device_deregister(&n2dm_acc_factory_device);
+#endif
     n2dm_acc_delete_attr(&(n2dm_acc_init_info.platform_diver_addr->driver));
     
     return 0;

@@ -3,8 +3,8 @@
  *
  * File Name         : n2dm.h
  * Authors           : William ZENG
- * Version           : V1.0.2
- * Date              : 03/05/2018
+ * Version           : V1.0.3
+ * Date              : 07/24/2018
  * Description       : N2DM driver source file
  *
  *********************************************************************************************************
@@ -25,6 +25,7 @@
  * VERSION | DATE          | DESCRIPTION
  *
  * 1.0.2   | 03/05/2018	   | modified driver to be compatible with Android O
+ * 1.0.3   | 07/24/2018	   | optimized calibration functions
  * 
  ****************************************************************************************************/
 
@@ -96,7 +97,7 @@
 #define N2DM_DATA_LEN        6
 #define N2DM_DEV_NAME        "N2DM"
 
-#define CONFIG_N2DM_LOWPASS   /*apply low pass filter on output*/       
+//#define CONFIG_N2DM_LOWPASS   /*apply low pass filter on output*/       
 
 #define CONFIG_N2DM_ACC_DRY
 

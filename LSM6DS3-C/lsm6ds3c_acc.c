@@ -741,14 +741,14 @@ static ssize_t lsm6ds3c_attr_acc_store_layout_value(struct device_driver *ddri, 
 	}
 
 	if (1 == sscanf(buf, "%d", &layout)) {
+        ST_LOG("layout is [%d]\n", layout);
 		if (!hwmsen_get_convert(layout, &acc_obj->cvt)) {
-			ST_ERR("HWMSEN_GET_CONVERT function error!\r\n");
-		} else if (!hwmsen_get_convert(acc_obj->lsm6ds3c_acc_hw->direction, &acc_obj->cvt)) {
-			ST_LOG("invalid layout: %d, restore to %d\n", layout, acc_obj->lsm6ds3c_acc_hw->direction);
+            acc_obj->lsm6ds3c_acc_hw->direction = layout;
 		} else {
-			ST_ERR("invalid layout: (%d, %d)\n", layout, acc_obj->lsm6ds3c_acc_hw->direction);
-			hwmsen_get_convert(0, &acc_obj->cvt);
-		}
+			ST_ERR("HWMSEN_GET_CONVERT function error!\r\n");
+			hwmsen_get_convert(acc_obj->lsm6ds3c_acc_hw->direction, &acc_obj->cvt);
+			ST_LOG("invalid layout: %d, restore to %d\n", layout, acc_obj->lsm6ds3c_acc_hw->direction);
+		}	
 	} else {
 		ST_LOG("invalid format = '%s'\n", buf);
 	}

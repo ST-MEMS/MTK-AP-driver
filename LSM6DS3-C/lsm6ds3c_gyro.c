@@ -615,13 +615,13 @@ static ssize_t lsm6ds3c_attr_gyro_store_layout_value(struct device_driver *ddri,
 	}
 
 	if (1 == sscanf(buf, "%d", &layout)) {
+		ST_LOG("layout is [%d]\n", layout);
 		if (!hwmsen_get_convert(layout, &gyro_obj->cvt)) {
-			ST_ERR("HWMSEN_GET_CONVERT function error!\r\n");
-		} else if(!hwmsen_get_convert(gyro_obj->lsm6ds3c_gyro_hw->direction, &gyro_obj->cvt)) {
-			ST_LOG("invalid layout: %d, restore to %d\n", layout, gyro_obj->lsm6ds3c_gyro_hw->direction);
+			gyro_obj->lsm6ds3c_gyro_hw->direction = layout;
 		} else {
-			ST_ERR("invalid layout: (%d, %d)\n", layout, gyro_obj->lsm6ds3c_gyro_hw->direction);
-			hwmsen_get_convert(0, &gyro_obj->cvt);
+			ST_ERR("HWMSEN_GET_CONVERT function error!\r\n");
+			hwmsen_get_convert(gyro_obj->lsm6ds3c_gyro_hw->direction, &gyro_obj->cvt);
+			ST_LOG("invalid layout: %d, restore to %d\n", layout, gyro_obj->lsm6ds3c_gyro_hw->direction);
 		}
 	} else {
 		ST_LOG("invalid format = '%s'\n", buf);

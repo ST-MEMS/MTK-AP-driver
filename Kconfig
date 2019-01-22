@@ -1,0 +1,9 @@
+config ST_LSM6DSO_IMU
+	bool "STMicroelectronics LSM6DSO IMU"
+	depends on I2C
+        default n
+	help
+	  Say Y here if you have a STMicroelectronics LSM6DSO IMU
+	  connected to your system.
+
+	  If unsure, say N.

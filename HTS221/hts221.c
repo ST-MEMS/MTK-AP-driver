@@ -15,6 +15,7 @@
  *          V1.2 --- [2013.03.26]Re-write i2c function to fix the bug that
  *                               i2c access error on MT6589 platform.
  *			V1.3 --- [2018.01.11]add temperature driver support
+ *			V1.4 --- [2019.01.23]update driver for Android O/P
  */
 
 #include <linux/of.h>
@@ -194,10 +195,12 @@ static int hts221_i2c_write_block(struct i2c_client *client, u8 addr, u8 *data, 
 	return err;
 }
 
+#if 0
 static void hts221_power(struct hmdy_hw *hw, unsigned int on)
 {
 
 }
+#endif
 
 static int hts221_check_ID(struct i2c_client *client)
 {
@@ -894,6 +897,7 @@ static struct miscdevice hts221_device = {
 	.fops = &hts221_fops,
 };
 
+#if 0
 static int hts221_suspend(struct i2c_client *client, pm_message_t msg)
 {
 	struct hts221_i2c_data *obj = i2c_get_clientdata(client);
@@ -948,6 +952,7 @@ static int hts221_resume(struct i2c_client *client)
 	mutex_unlock(&hts221_op_mutex);
 	return 0;
 }
+#endif
 
 static int hts221_i2c_detect(struct i2c_client *client, struct i2c_board_info *info)
 {
@@ -1203,9 +1208,7 @@ static int hts221_i2c_remove(struct i2c_client *client)
 	if (err)
 		HTS_ERR("hts221_delete_attr failed, err = %d\n", err);
 
-	err = misc_deregister(&hts221_device);
-	if (err)
-		HTS_ERR("misc_deregister failed, err = %d\n", err);
+	misc_deregister(&hts221_device);
 
 	obj_i2c_data = NULL;
 	i2c_unregister_device(client);
@@ -1232,8 +1235,8 @@ static struct i2c_driver hts221_i2c_driver = {
 	.probe = hts221_i2c_probe,
 	.remove = hts221_i2c_remove,
 	.detect = hts221_i2c_detect,
-	.suspend = hts221_suspend,
-	.resume = hts221_resume,
+//	.suspend = hts221_suspend,
+//	.resume = hts221_resume,
 	.id_table = hts221_i2c_id,
 };
 
@@ -1311,10 +1314,11 @@ static struct temp_init_info hts221_temp_init_info = {
 static int __init hts221_init(void)
 {
 	const char *name = "mediatek,hts221";
+    int err;
 
-	hw = get_hmdy_dts_func(name, hw);
-	if (!hw)
-		HMDY_ERR("get dts info fail\n");
+	err = get_hmdy_dts_func(name, hw);
+	if (!err)
+		HTS_ERR("get dts info fail\n");
 
 	hmdy_driver_add(&hts221_init_info);
 	temp_driver_add(&hts221_temp_init_info);

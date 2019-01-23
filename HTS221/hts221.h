@@ -20,7 +20,7 @@
 /*#define CONFIG_ID_TEMPERATURE*/
 /*#define CONFIG_I2C_BASIC_FUNCTION*/
 
-#define HTS_DRIVER_VERSION "V1.3"
+#define HTS_DRIVER_VERSION "V1.4"
 
 #define HTS_DEV_NAME        "hts221"
 

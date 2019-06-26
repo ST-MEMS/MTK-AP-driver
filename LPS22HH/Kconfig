@@ -1,0 +1,3 @@
+config MTK_LPS22HH
+	bool "STMicroelectronics LPS22HH Barometer"
+	default n

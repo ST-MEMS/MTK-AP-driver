@@ -61,6 +61,7 @@ static int lsm6dso_embeded_feature_enable(int sensor ,int enable)
     }
 	
 #if (!CONFIG_PEDOMETER_ALWAYS_ON)
+#if 0
     if ((sensor == ST_SENSOR_STEP_DETECT) || (sensor == ST_SENSOR_SIGNIFICANT_MOTION) || (sensor == ST_SENSOR_TILT)) {
         if(((obj->tilt_enabled+obj->significant_enabled+obj->step_d_enabled) == 0x01) && enable_bit) {
             res = lsm6dso_i2c_write_with_mask(client,LSM6DSO_PAGE_RW_REG,
@@ -80,6 +81,7 @@ static int lsm6dso_embeded_feature_enable(int sensor ,int enable)
             }
         }
     }
+#endif
 
     if (sensor == ST_SENSOR_STEP_COUNTER || sensor == ST_SENSOR_STEP_DETECT){
         if ((((obj->step_d_enabled+obj->step_c_enabled) == 1) & enable_bit) ||
